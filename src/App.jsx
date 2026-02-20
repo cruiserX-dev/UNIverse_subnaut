@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import MeetDeveloper from "./MeetDeveloper";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // ARCHITECTURE: University Gateway System
@@ -350,7 +351,7 @@ function Toast({ msg }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // LOADING SCREEN — black bg, real logo, gold bar
 // ══════════════════════════════════════════════════════════════════════════════
-function LoadingScreen({ progress, onDone }) {
+function LoadingScreen({ progress, onDone}) {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
     const t1 = setTimeout(() => setPhase(1), 150);
@@ -631,6 +632,7 @@ function GatewayScreen({ uniDB, currentUser, onSelect, onCreate, onBack }) {
           </PrimaryBtn>
         </div>
       )}
+      <MeetDeveloper />
     </Page>
   );
 }
