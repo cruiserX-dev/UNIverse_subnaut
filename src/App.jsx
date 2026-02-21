@@ -383,7 +383,7 @@ function LoadingScreen({ progress, onDone}) {
       <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 55% at 50% 48%, rgba(180,140,80,0.07) 0%, transparent 70%)", opacity: phase >= 1 ? 1 : 0, transition: "opacity 2s ease", pointerEvents: "none" }} />
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
         <div style={{ ...fade(phase >= 1), marginBottom: 60 }}>
-          <img src={LOGO_SRC} alt="UNIverse" style={{ width: 250, height: "auto", display: "block", filter: "drop-shadow(0 0 32px rgba(200,160,80,0.2)) brightness(1.05)" }} />
+          <img src={LOGO_SRC} alt="UNIverse" style={{ width: 250, height: "auto", display: "block", filter: "drop-shadow(0 0 32px rgba(200,160,80,0.2)) brightness(1.5)" }} />
         </div>
         <div style={{ ...fade(phase >= 2, 60), width: "100%", maxWidth: 250 }}>
           <div style={{ height: 1.5, background: "rgba(255,255,255,0.08)", borderRadius: 99, position: "relative", overflow: "visible" }}>
@@ -402,14 +402,14 @@ function LoadingScreen({ progress, onDone}) {
             <div style={{ height: 1, width: 28, background: "linear-gradient(90deg, rgba(196,160,85,0.5), transparent)" }} />
           </div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 600, fontStyle: "italic", color: "rgba(255,255,255,0.5)", lineHeight: 1.8 }}>
-            "The future of university commerce is loading
-            <span style={{ display: "block", marginTop: 3, color: "#C4A055", fontStyle: "normal" }}>— and you're part of it."</span>
+            The future of university commerce is loading
+            <span style={{ display: "block", marginTop: 3, color: "#C4A055", fontStyle: "normal" }}> and you're part of it.</span>
           </div>
         </div>
       </div>
       <div style={{ position: "absolute", bottom: 36, display: "flex", alignItems: "center", gap: 10, opacity: phase >= 3 ? 0.35 : 0, transition: "opacity 1.2s ease 1s" }}>
         <div style={{ width: 20, height: 1, background: "rgba(196,160,85,0.5)" }} />
-        <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 600, letterSpacing: "0.28em", textTransform: "uppercase", color: "rgba(196,160,85,0.7)" }}>University Commerce Platform</div>
+        <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 8, fontWeight: 600, letterSpacing: "0.28em", textTransform: "uppercase", color: "rgba(239, 180, 54, 0.7)" }}>University Commerce Platform</div>
         <div style={{ width: 20, height: 1, background: "rgba(196,160,85,0.5)" }} />
       </div>
     </div>
