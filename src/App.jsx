@@ -380,7 +380,7 @@ function LoadingScreen({ progress, onDone}) {
       padding: "0 40px",
       opacity: phase === 4 ? 0 : 1, transition: "opacity 0.85s cubic-bezier(0.4,0,0.2,1)",
     }}>
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 55% at 50% 48%, rgba(180,140,80,0.07) 0%, transparent 70%)", opacity: phase >= 1 ? 1 : 0, transition: "opacity 2s ease", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 55% at 50% 48%, rgba(180,140,80,0.15) 0%, transparent 70%)", opacity: phase >= 1 ? 1 : 0, transition: "opacity 2s ease", pointerEvents: "none" }} />
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
         <div style={{ ...fade(phase >= 1), marginBottom: 60 }}>
           <img src={LOGO_SRC} alt="UNIverse" style={{ width: 250, height: "auto", display: "block", filter: "drop-shadow(0 0 32px rgba(200,160,80,0.2)) brightness(1.5)" }} />
