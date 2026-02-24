@@ -419,7 +419,7 @@ function LoadingScreen({ progress, onDone}) {
       </div>
       <div style={{ position: "absolute", bottom: 36, display: "flex", alignItems: "center", gap: 10, opacity: phase >= 3 ? 1 : 0, transition: "opacity 0.5s ease 0.3s" }}>
         <div style={{ width: 20, height: 1, background: "rgba(196,160,85,0.5)" }} />
-        <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 13, fontWeight: 600, letterSpacing: "0.28em", textTransform: "uppercase", color: "rgba(46, 204, 143, 0.7)" }}> MARKETPLACE, RIDEPOOLING, COMMUNITY.</div>
+        <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, fontWeight: 600, letterSpacing: "0.28em", textTransform: "uppercase", color: "rgba(46, 204, 143, 0.7)" }}> MARKETPLACE, RIDEPOOLING, COMMUNITY.</div>
         <div style={{ width: 20, height: 1, background: "rgba(196,160,85,0.5)" }} />
       </div>
     </div>
