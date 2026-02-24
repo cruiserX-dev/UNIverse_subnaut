@@ -30,7 +30,7 @@ export default function MeetDeveloper() {
           </div>
           <div style={{ padding: 20, textAlign: "center" }}>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#1C1917" }}>The Developer</div>
-            <div style={{ fontSize: 12, color: "#000000", marginBottom: 12 }}>UNIverse · Creator</div>
+            <div style={{ fontSize: 12, color: "#000000", marginBottom: 12 }}>Connexus · Creator</div>
             <p style={{ fontSize: 13, color: "#4B4540", marginBottom: 16 }}>
               Hi, thanks for meeting me here. wanna work together? drop me a text. Have a good day 🙂~ Subodh Nautiyal
             </p>
