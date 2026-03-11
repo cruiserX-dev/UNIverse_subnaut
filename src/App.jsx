@@ -72,7 +72,7 @@ export default function App() {
   // ── Loading bar ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (screen !== S.LOADING) return;
-    const DURATION = 8000;
+    const DURATION = 5000;
     const startTime = performance.now();
     const ease = (t) => {
       if (t < 0.45) return t * 1.6;
