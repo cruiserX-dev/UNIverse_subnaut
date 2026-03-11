@@ -1,7 +1,36 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      manifest: {
+        name: 'Connexus',
+        short_name: 'Connexus',
+        description: 'Student to Student Network — Marketplace, Ride Pool & Clubs',
+        theme_color: '#1C1917',
+        background_color: '#FAF8F5',
+        display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/',
+        icons: [
+          {
+            src: 'cnxf.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'cnxf.png',
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
+      }
+    })
+  ],
 })
