@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.connexus.app",
+      "sha256_cert_fingerprints": [
+        "1C:7C:E8:A9:4E:2A:51:71:44:12:A2:C0:76:82:02:11:97:B9:D5:A3:E8:7D:2A:21:C9:67:A4:70:2C:7B:73:E6"
+      ]
+    }
+  }
+]
