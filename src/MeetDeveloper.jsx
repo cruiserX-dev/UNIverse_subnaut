@@ -46,16 +46,16 @@ export default function MeetDeveloper() {
       <button onClick={() => setOpen(!open)} style={{
         position: "fixed", bottom: 20, right: 20, zIndex: 100,
         display: "flex", alignItems: "center", gap: 6,
-        background: "linear-gradient(135deg, rgba(139,106,63,0.5), rgba(196,160,85,0.5))",
+        background: "linear-gradient(135deg, rgba(139, 106, 63, 0.39), rgba(196,160,85,0.5))",
         backdropFilter: "blur(10px)",
         border: "1px solid rgba(255,255,255,0.2)",
         borderRadius: 99, padding: "2px 4px 2px 2px",
-        cursor: "pointer", boxShadow: "0 4px 15px rgba(139,106,62,0.35)"
+        cursor: "pointer", boxShadow: "0 4px 15px rgba(139, 106, 62, 0.29)"
       }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", border: "2px solid rgba(255,255,255,0.6)" }}>
           <img src={myPhoto} alt="Dev" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: "#fff", letterSpacing: "0.06em" }}>Meet the Developer</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "#fff", letterSpacing: "0.06em" }}>Meet Dev</span>
       </button>
     </>
   );
