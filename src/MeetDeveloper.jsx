@@ -49,7 +49,7 @@ export default function MeetDeveloper() {
         background: "linear-gradient(135deg, rgba(139,106,63,0.5), rgba(196,160,85,0.5))",
         backdropFilter: "blur(10px)",
         border: "1px solid rgba(255,255,255,0.2)",
-        borderRadius: 99, padding: "3px 6px 3px 3px",
+        borderRadius: 99, padding: "2px 4px 2px 2px",
         cursor: "pointer", boxShadow: "0 4px 15px rgba(139,106,62,0.35)"
       }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", border: "2px solid rgba(255,255,255,0.6)" }}>
