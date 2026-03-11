@@ -135,9 +135,6 @@ export default function App() {
       setProfile(data);
       if (data.university_id) {
         await loadUniData(data.university_id);
-        setScreen(S.HOME);
-      } else {
-        setScreen(S.GATEWAY);
       }
     }
     setAuthLoading(false);
@@ -317,20 +314,15 @@ export default function App() {
         {toast && <Toast msg={toast} />}
 
         {screen === S.LOADING &&
-          <LoadingScreen progress={Math.min(loadProgress, 100)} onDone={() => {
-            if (authLoading) {
-              // Wait for auth check
-              const wait = setInterval(() => {
-                if (!authLoading) {
-                  clearInterval(wait);
-                  // If already logged in, loadProfile will handle screen
-                }
-              }, 100);
-              setTimeout(() => { clearInterval(wait); setScreen(S.AUTH); }, 2000);
-            } else {
-              setScreen(S.AUTH);
-            }
-          }} />}
+         <LoadingScreen progress={Math.min(loadProgress, 100)} onDone={() => {
+  if (profile?.university_id) {
+    setScreen(S.HOME);
+  } else if (authUser) {
+    setScreen(S.GATEWAY);
+  } else {
+    setScreen(S.AUTH);
+  }
+}} />}
 
         {screen === S.AUTH &&
           <AuthScreen
