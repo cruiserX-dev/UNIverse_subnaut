@@ -54,7 +54,7 @@ export default function CatCounter({ memberCount = 1, maxCount = 100 }) {
 
   return (
     <div style={{
-      background: "#fff",
+      background: "#a37eef33",
       borderRadius: 14,
       border: "1px solid #EDE8DF",
       padding: "10px 12px",
@@ -89,7 +89,7 @@ export default function CatCounter({ memberCount = 1, maxCount = 100 }) {
         }} />
       </div>
 
-      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, color: "#C4B5A4", textAlign: "center", marginTop: 6, letterSpacing: "0.05em" }}>
+      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, color: "#000000", textAlign: "center", marginTop: 6, letterSpacing: "0.05em" }}>
         first 100 Users Count
       </div>
     </div>
