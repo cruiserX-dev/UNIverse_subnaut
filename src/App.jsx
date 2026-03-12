@@ -67,6 +67,7 @@ export default function App() {
   const [clubFilter, setClubFilter]           = useState("All");
   const [joinedClubs, setJoinedClubs]         = useState({});
   const [confirmedRides, setConfirmedRides]   = useState({});
+  const [joiningRide, setJoiningRide]         = useState(null); 
 
   const toast_ = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3200); };
 
@@ -279,13 +280,31 @@ export default function App() {
   };
 
   // ── Join ride ──────────────────────────────────────────────────────────────
-  const handleJoinRide = async (id) => {
-    setRides(rs => rs.map(r => r.id === id && r.seats > 0 ? { ...r, seats: r.seats - 1 } : r));
-    setConfirmedRides(c => ({ ...c, [id]: true }));
+  const handleJoinRide = (ride) => {
+    // Open meetup popup instead of directly joining
+    setJoiningRide(ride);
+  };
+
+  const handleConfirmJoin = async (ride, location, time) => {
+    if (!ride || ride.seats <= 0) return;
+    setRides(rs => rs.map(r => r.id === ride.id ? { ...r, seats: r.seats - 1 } : r));
+    setConfirmedRides(c => ({ ...c, [ride.id]: true }));
+    setJoiningRide(null);
     if (authUser) {
-      await supabase.from('rides').update({ seats: rides.find(r => r.id === id)?.seats - 1 }).eq('id', id);
+      await supabase.from('rides').update({ seats: ride.seats - 1 }).eq('id', ride.id);
+      await supabase.from('interests').insert({
+        from_user_id: authUser.id,
+        from_name: profile.name,
+        ride_id: ride.id,
+        type: 'ride',
+        message: `Let's meet at ${location} at ${time}`,
+        meeting_location: location,
+        meeting_time: time,
+        contact: '',
+        status: 'pending',
+      });
     }
-    toast_("🎉 Seat reserved!");
+    toast_("🎉 Seat reserved! Meetup request sent to driver.");
   };
 
   // ── Clubs (still local for now) ────────────────────────────────────────────
@@ -393,7 +412,17 @@ export default function App() {
             onBack={() => setScreen(S.HOME)}
             onJoin={handleJoinRide}
             onOffer={() => setScreen(S.OFFER_RIDE)}
+            currentUser={currentUser}
           />}
+
+{/* Meetup Popup */}
+{joiningRide && (
+  <MeetupPopup
+    ride={joiningRide}
+    onCancel={() => setJoiningRide(null)}
+    onConfirm={(location, time) => handleConfirmJoin(joiningRide, location, time)}
+  />
+)}
 
         {screen === S.OFFER_RIDE && uni &&
           <OfferRideScreen onBack={() => setScreen(S.RIDESHARE)} onSubmit={handleOfferRide} />}
@@ -487,6 +516,17 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
     await supabase.from('interests').update({ status: 'seen' }).eq('id', interestId);
     setInterests(i => i.map(x => x.id === interestId ? { ...x, status: 'seen' } : x));
     setRideInterests(i => i.map(x => x.id === interestId ? { ...x, status: 'seen' } : x));
+  };
+  const confirmSeat = async (interestId) => {
+    await supabase.from('interests').update({ status: 'connected' }).eq('id', interestId);
+    setRideInterests(i => i.map(x => x.id === interestId ? { ...x, status: 'connected' } : x));
+    toast_("✅ Seat confirmed!");
+  };
+
+  const declineSeat = async (interestId) => {
+    await supabase.from('interests').update({ status: 'declined' }).eq('id', interestId);
+    setRideInterests(i => i.map(x => x.id === interestId ? { ...x, status: 'declined' } : x));
+    toast_("❌ Request declined.");
   };
 
   const deleteListing = async (id) => {
@@ -643,9 +683,9 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
                     </div>
                     {isExpanded && rInterests.length > 0 && (
                       <div style={{ marginTop: 14, borderTop: "1px solid #F5F0E8", paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-                        {rInterests.map(interest => (
-                          <InterestCard key={interest.id} interest={interest} onSeen={() => markSeen(interest.id)} />
-                        ))}
+                       {rInterests.map(interest => (
+  <InterestCard key={interest.id} interest={interest} onSeen={() => markSeen(interest.id)} onConfirm={confirmSeat} onDecline={declineSeat} />
+))}
                       </div>
                     )}
                   </div>
@@ -682,24 +722,34 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
 }
 
 // ── Interest Card (shown in My Hub when buyer expressed interest) ──────────────
-function InterestCard({ interest, onSeen }) {
+function InterestCard({ interest, onSeen, onConfirm, onDecline }) {
   return (
-    <div onClick={onSeen} style={{ background: interest.status === 'pending' ? "#FFFBF0" : "#FAF8F5", borderRadius: 12, border: `1px solid ${interest.status === 'pending' ? "#F59E0B40" : "#EDE8DF"}`, padding: "12px 14px", cursor: "pointer" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+    <div style={{ background: interest.status === 'pending' ? "#FFFBF0" : interest.status === 'connected' ? "#F0FDF4" : "#FAF8F5", borderRadius: 12, border: `1px solid ${interest.status === 'pending' ? "#F59E0B40" : interest.status === 'connected' ? "#86EFAC" : "#EDE8DF"}`, padding: "12px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #8B6A3E, #C4A055)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 11, fontFamily: "'Playfair Display', serif" }}>{interest.from_name[0]}</div>
           <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, fontWeight: 600, color: "#1C1917" }}>{interest.from_name}</div>
         </div>
         {interest.status === 'pending' && <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#F59E0B" }} />}
+        {interest.status === 'connected' && <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#16A34A", fontWeight: 600 }}>✅ Confirmed</div>}
+        {interest.status === 'declined' && <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#EF4444", fontWeight: 600 }}>❌ Declined</div>}
       </div>
-      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#4B4540", marginBottom: interest.contact ? 8 : 0, fontStyle: "italic" }}>"{interest.message}"</div>
-      {interest.contact && (
-        <div style={{ background: "#fff", borderRadius: 8, padding: "7px 10px", border: "1px solid #EDE8DF", fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#1C1917", fontWeight: 600 }}>📞 {interest.contact}</div>
+
+      {/* Message */}
+      <div style={{ background: "#fff", borderRadius: 10, padding: "10px 12px", border: "1px solid #EDE8DF", fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#1C1917", marginBottom: 10 }}>
+        📍 {interest.message}
+      </div>
+
+      {/* Confirm/Decline — only for pending ride interests */}
+      {interest.status === 'pending' && interest.ride_id && onConfirm && (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => onConfirm(interest.id)} style={{ flex: 1, background: "#1C1917", border: "none", color: "#FAF8F5", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>✅ Confirm Seat</button>
+          <button onClick={() => onDecline(interest.id)} style={{ flex: 1, background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#EF4444", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>❌ Decline</button>
+        </div>
       )}
     </div>
   );
 }
-
 function EmptyState({ icon, title, sub }) {
   return (
     <div style={{ textAlign: "center", padding: "60px 0" }}>
@@ -1065,16 +1115,16 @@ function MarketplaceScreen({ products, uni, filter, setFilter, onBack, onView, o
 // PRODUCT DETAIL — with real interest flow
 // ══════════════════════════════════════════════════════════════════════════════
 function ProductDetailScreen({ product, currentUser, onBack, onInterest }) {
-  const [step, setStep] = useState("prompts"); // prompts | contact | done
-  const [selectedMsg, setSelectedMsg] = useState("");
-  const [contact, setContact] = useState("");
+  const [step, setStep] = useState("meet"); // meet | done
+const [location, setLocation] = useState("");
+const [time, setTime] = useState("");
 
-  const prompts = ["Is this still available?", "Can we meet on campus?", "What's your best price?", "I want to buy this"];
-
-  const handleSend = async () => {
-    await onInterest(selectedMsg, contact);
-    setStep("done");
-  };
+const handleSend = async () => {
+  if (!location || !time) return;
+  const msg = `Let's meet at ${location} at ${time}`;
+  await onInterest(msg, "");
+  setStep("done");
+};
 
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
@@ -1101,33 +1151,45 @@ function ProductDetailScreen({ product, currentUser, onBack, onInterest }) {
         </div>
 
         {/* Interest flow */}
-        <div style={{ margin: "0 20px 32px" }}>
-          {step === "prompts" && (
-            <>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#C4B5A4", fontWeight: 600, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>Express interest</div>
-              {prompts.map((btn, i) => (
-                <button key={btn} onClick={() => { setSelectedMsg(btn); setStep("contact"); }} className="card-lift"
-                  style={{ width: "100%", background: i === 0 ? "#1C1917" : "#fff", border: i === 0 ? "none" : "1px solid #EDE8DF", color: i === 0 ? "#FAF8F5" : "#1C1917", borderRadius: 16, padding: "14px 18px", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "'Montserrat', sans-serif", textAlign: "left", letterSpacing: "0.01em", marginBottom: 10 }}>{btn}</button>
-              ))}
-            </>
-          )}
-          {step === "contact" && (
-            <div className="anim-0" style={{ background: "#fff", borderRadius: 22, border: "1px solid #EDE8DF", padding: "22px 20px" }}>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#C4A882", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>Your message</div>
-              <div style={{ background: "#FAF8F5", borderRadius: 12, padding: "12px 14px", fontFamily: "'Montserrat', sans-serif", fontSize: 13, color: "#1C1917", marginBottom: 16, border: "1px solid #EDE8DF" }}>"{selectedMsg}"</div>
-              <input placeholder="Your WhatsApp / contact (optional)" value={contact} onChange={e => setContact(e.target.value)} style={{ ...inputStyle, marginBottom: 16 }} />
-              <PrimaryBtn onClick={handleSend}>Send to Seller →</PrimaryBtn>
-              <button onClick={() => setStep("prompts")} style={{ width: "100%", marginTop: 10, background: "none", border: "none", color: "#A8957A", fontSize: 12, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>← Change message</button>
-            </div>
-          )}
-          {step === "done" && (
-            <div className="anim-0" style={{ background: "#F0FDF4", borderRadius: 22, border: "1px solid #86EFAC", padding: "28px 20px", textAlign: "center" }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#1C1917", marginBottom: 8 }}>Interest sent!</div>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#16A34A" }}>The seller will see your message in their My Hub dashboard.</div>
-            </div>
-          )}
-        </div>
+        {/* Meet flow */}
+<div style={{ margin: "0 20px 32px" }}>
+  {step === "meet" && (
+    <div className="anim-0" style={{ background: "#fff", borderRadius: 22, border: "1px solid #EDE8DF", padding: "22px 20px" }}>
+      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#C4A882", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 16 }}>Propose a meetup</div>
+      
+      {/* Preview */}
+      <div style={{ background: "#FAF8F5", borderRadius: 14, padding: "14px 16px", border: "1px solid #EDE8DF", marginBottom: 18, fontFamily: "'Montserrat', sans-serif", fontSize: 13, color: "#1C1917", lineHeight: 2 }}>
+        📍 Let's meet at{" "}
+        <span style={{ color: "#8B6A3E", fontWeight: 700 }}>{location || "___________"}</span>
+        {" "}at{" "}
+        <span style={{ color: "#8B6A3E", fontWeight: 700 }}>{time || "___________"}</span>
+      </div>
+
+      <input
+        placeholder="Location (e.g. Library entrance, Canteen...)"
+        value={location}
+        onChange={e => setLocation(e.target.value)}
+        style={{ ...inputStyle, marginBottom: 10 }}
+      />
+      <input
+        placeholder="Time (e.g. 3:00 PM, After lunch...)"
+        value={time}
+        onChange={e => setTime(e.target.value)}
+        style={{ ...inputStyle, marginBottom: 20 }}
+      />
+      <PrimaryBtn onClick={handleSend} disabled={!location || !time} style={{ opacity: location && time ? 1 : 0.38 }}>
+        Send Meetup Request 📍
+      </PrimaryBtn>
+    </div>
+  )}
+  {step === "done" && (
+    <div className="anim-0" style={{ background: "#F0FDF4", borderRadius: 22, border: "1px solid #86EFAC", padding: "28px 20px", textAlign: "center" }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>📍</div>
+      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#1C1917", marginBottom: 8 }}>Meetup request sent!</div>
+      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#16A34A" }}>Seller will see your proposed meetup in their My Hub.</div>
+    </div>
+  )}
+</div>
       </div>
     </Page>
   );
@@ -1170,7 +1232,7 @@ function SellScreen({ onBack, onSubmit }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // RIDESHARE
 // ══════════════════════════════════════════════════════════════════════════════
-function RideshareScreen({ rides, uni, confirmed, onBack, onJoin, onOffer }) {
+function RideshareScreen({ rides, uni, confirmed, onBack, onJoin, onOffer, currentUser }) {
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
       <Header onBack={onBack} title="Ride Pool" uni={uni} right={
@@ -1215,7 +1277,7 @@ function RideshareScreen({ rides, uni, confirmed, onBack, onJoin, onOffer }) {
                     <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#78716C" }}>🕐 {ride.ride_time || ride.time}</span>
                     <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: ride.seats === 0 ? "#EF4444" : "#10B981", fontWeight: 600 }}>💺 {ride.seats} left</span>
                   </div>
-                  <button disabled={ride.seats === 0 || confirmed[ride.id]} onClick={() => onJoin(ride.id)} style={{ padding: "8px 16px", borderRadius: 10, border: confirmed[ride.id] ? `1px solid ${color}` : "none", cursor: ride.seats === 0 ? "not-allowed" : "pointer", fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", background: confirmed[ride.id] ? `${color}12` : ride.seats === 0 ? "#F5F0E8" : color, color: confirmed[ride.id] ? color : ride.seats === 0 ? "#C4B5A4" : "#fff", transition: "all 0.2s" }}>
+                  <button disabled={ride.seats === 0 || confirmed[ride.id]} onClick={() => onJoin(ride)} style={{ padding: "8px 16px", borderRadius: 10, border: confirmed[ride.id] ? `1px solid ${color}` : "none", cursor: ride.seats === 0 ? "not-allowed" : "pointer", fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", background: confirmed[ride.id] ? `${color}12` : ride.seats === 0 ? "#F5F0E8" : color, color: confirmed[ride.id] ? color : ride.seats === 0 ? "#C4B5A4" : "#fff", transition: "all 0.2s" }}>
                     {confirmed[ride.id] ? "✓ Reserved" : ride.seats === 0 ? "Full" : "Join Ride"}
                   </button>
                 </div>
@@ -1344,7 +1406,57 @@ function CreateClubScreen({ onBack, onSubmit }) {
     </Page>
   );
 }
+function MeetupPopup({ ride, onCancel, onConfirm }) {
+  const [location, setLocation] = useState("");
+  const [time, setTime] = useState("");
+  const valid = location.trim() && time.trim();
 
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div className="anim-0" style={{ background: "#FAF8F5", borderRadius: "24px 24px 0 0", padding: "28px 24px 40px", width: "100%", maxWidth: 960, boxShadow: "0 -8px 40px rgba(0,0,0,0.15)" }}>
+        {/* Handle bar */}
+        <div style={{ width: 40, height: 4, background: "#EDE8DF", borderRadius: 99, margin: "0 auto 24px" }} />
+        
+        {/* Ride summary */}
+        <div style={{ background: "#fff", borderRadius: 16, padding: "14px 16px", border: "1px solid #EDE8DF", marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 24 }}>🚗</div>
+          <div>
+            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, fontWeight: 600, color: "#1C1917" }}>{ride.from_location} → {ride.to_location}</div>
+            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 2 }}>📅 {ride.ride_date} · 🕐 {ride.ride_time} · ₹{ride.cost}/seat</div>
+          </div>
+        </div>
+
+        <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#C4A882", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 16 }}>Propose a meetup point</div>
+
+        {/* Live preview */}
+        <div style={{ background: "#F0FDF4", borderRadius: 14, padding: "14px 16px", border: "1px solid #86EFAC", marginBottom: 18, fontFamily: "'Montserrat', sans-serif", fontSize: 13, color: "#1C1917", lineHeight: 2 }}>
+          📍 Let's meet at{" "}
+          <span style={{ color: "#8B6A3E", fontWeight: 700 }}>{location || "___________"}</span>
+          {" "}at{" "}
+          <span style={{ color: "#8B6A3E", fontWeight: 700 }}>{time || "___________"}</span>
+        </div>
+
+        <input
+          placeholder="Meeting point (e.g. Main gate, Library...)"
+          value={location}
+          onChange={e => setLocation(e.target.value)}
+          style={{ ...inputStyle, marginBottom: 10 }}
+        />
+        <input
+          placeholder="Time (e.g. 3:00 PM, 15 mins before departure...)"
+          value={time}
+          onChange={e => setTime(e.target.value)}
+          style={{ ...inputStyle, marginBottom: 20 }}
+        />
+
+        <PrimaryBtn onClick={() => valid && onConfirm(location, time)} disabled={!valid} style={{ opacity: valid ? 1 : 0.38 }}>
+          Send Meetup Request 📍
+        </PrimaryBtn>
+        <button onClick={onCancel} style={{ width: "100%", marginTop: 12, background: "none", border: "none", color: "#A8957A", fontSize: 12, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
 // ══════════════════════════════════════════════════════════════════════════════
 // SHARED COMPONENTS
 // ══════════════════════════════════════════════════════════════════════════════
