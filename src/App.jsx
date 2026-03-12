@@ -3,6 +3,7 @@ import cnxfLogo from './assets/cnxf.png';
 import { useState, useEffect, useRef } from "react";
 import MeetDeveloper from "./MeetDeveloper";
 import { createClient } from '@supabase/supabase-js';
+import CatCounter from "./CatCounter";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SUPABASE CLIENT
@@ -109,13 +110,15 @@ export default function App() {
 
   // ── Listen for auth changes (persists session across refresh) ─────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setAuthUser(session.user);
-        loadProfile(session.user.id);
-      } else {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error || !session?.user) {
+        // Clear corrupt tokens automatically
+        supabase.auth.signOut();
         setAuthLoading(false);
+        return;
       }
+      setAuthUser(session.user);
+      loadProfile(session.user.id);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
@@ -135,6 +138,9 @@ export default function App() {
       setProfile(data);
       if (data.university_id) {
         await loadUniData(data.university_id);
+        setScreen(S.HOME);
+      } else {
+        setScreen(S.GATEWAY);
       }
     }
     setAuthLoading(false);
@@ -176,6 +182,7 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    localStorage.clear();
     setProfile(null);
     setAuthUser(null);
     setListings([]);
@@ -983,6 +990,7 @@ function HomeScreen({ uni, user, onNav, onSwitchUni, onBack, onHub }) {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C4A882" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
           <span style={{ fontFamily: "'Montserrat', sans-serif", color: "#C4A882", fontSize: 14, fontWeight: 400 }}>Search in {uni.shortName}...</span>
         </div>
+        <CatCounter memberCount={uni.members} maxCount={100} />
       </div>
 
       <div style={{ padding: "20px 24px 10px" }}>
