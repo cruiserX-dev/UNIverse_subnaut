@@ -132,6 +132,26 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+  // Realtime: notify passenger when ride interest status changes
+  useEffect(() => {
+    if (!authUser) return;
+    const channel = supabase
+      .channel('interest-updates')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'interests',
+        filter: `from_user_id=eq.${authUser.id}`,
+      }, (payload) => {
+        const { status, type } = payload.new;
+        if (type === 'ride') {
+          if (status === 'connected') toast_("🎉 Rider confirmed your seat! Don't forget to meet.");
+          if (status === 'declined') toast_("❌ Rider declined your request. Try another ride!");
+        }
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [authUser]);
 
   const loadProfile = async (userId) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -242,6 +262,7 @@ export default function App() {
       seller_name: item.seller,
       dept: item.dept,
       status: 'active',
+      image_url: item.image_url || '',
     };
     if (authUser && profile?.id !== 'guest') {
       const { data } = await supabase.from('listings').insert(row).select().single();
@@ -1096,8 +1117,10 @@ function MarketplaceScreen({ products, uni, filter, setFilter, onBack, onView, o
         )}
         {filtered.map((item, i) => (
           <div key={item.id} className="card-lift fade-in-item" style={{ animationDelay: `${i * 0.05}s`, background: "#fff", borderRadius: 18, padding: 16, border: "1px solid #EDE8DF", cursor: "pointer", boxShadow: "0 2px 10px rgba(139,106,62,0.05)" }} onClick={() => onView(item)}>
-            <div style={{ width: "100%", aspectRatio: "1", background: `${CAT_COLORS[item.category] || "#8B6A3E"}10`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, marginBottom: 12, border: `1px solid ${CAT_COLORS[item.category] || "#8B6A3E"}18` }}>{CAT_EMOJIS[item.category] || "📦"}</div>
-            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: CAT_COLORS[item.category] || "#8B6A3E", marginBottom: 4, letterSpacing: "0.1em", textTransform: "uppercase" }}>{item.category}</div>
+{item.image_url
+  ? <img src={item.image_url} alt={item.title} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 12, marginBottom: 12 }} />
+  : <div style={{ width: "100%", aspectRatio: "1", background: `${CAT_COLORS[item.category] || "#8B6A3E"}10`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, marginBottom: 12, border: `1px solid ${CAT_COLORS[item.category] || "#8B6A3E"}18` }}>{CAT_EMOJIS[item.category] || "📦"}</div>
+}            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: CAT_COLORS[item.category] || "#8B6A3E", marginBottom: 4, letterSpacing: "0.1em", textTransform: "uppercase" }}>{item.category}</div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 600, color: "#1C1917", marginBottom: 4, lineHeight: 1.35 }}>{item.title}</div>
             <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#C4B5A4", marginBottom: 12, fontWeight: 400 }}>{item.condition}</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1131,7 +1154,12 @@ const handleSend = async () => {
       <Header onBack={onBack} title="Product Details" />
       <div style={{ flex: 1, overflow: "auto", scrollbarWidth: "none" }}>
         <div style={{ margin: "0 20px 18px", background: "#fff", borderRadius: 22, border: "1px solid #EDE8DF", overflow: "hidden", boxShadow: "0 2px 16px rgba(139,106,62,0.06)" }}>
-          <div style={{ height: 190, background: `${CAT_COLORS[product.category] || "#8B6A3E"}10`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 76 }}>{CAT_EMOJIS[product.category] || "📦"}</div>
+<div style={{ height: 190, background: `${CAT_COLORS[product.category] || "#8B6A3E"}10`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 76, overflow: "hidden" }}>
+  {product.image_url
+    ? <img src={product.image_url} alt={product.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+    : CAT_EMOJIS[product.category] || "📦"
+  }
+</div>
           <div style={{ padding: "20px 20px 22px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, background: `${CAT_COLORS[product.category]}18`, color: CAT_COLORS[product.category], padding: "4px 10px", borderRadius: 99, letterSpacing: "0.08em", textTransform: "uppercase" }}>{product.category}</span>
@@ -1200,14 +1228,59 @@ const handleSend = async () => {
 // ══════════════════════════════════════════════════════════════════════════════
 function SellScreen({ onBack, onSubmit }) {
   const [form, setForm] = useState({ title: "", category: "Books", price: "", desc: "", seller: "", dept: "", condition: "Good" });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.title && form.price && form.seller && form.dept && form.desc;
+
+  const handleImage = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleSubmit = async () => {
+    if (!valid) return;
+    setUploading(true);
+    let image_url = "";
+    if (imageFile) {
+      const ext = imageFile.name.split('.').pop();
+      const path = `listing-${Date.now()}.${ext}`;
+      const { data, error } = await supabase.storage.from('listings').upload(path, imageFile, { upsert: true });
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('listings').getPublicUrl(path);
+        image_url = urlData.publicUrl;
+      }
+    }
+    setUploading(false);
+    onSubmit({ ...form, price: parseInt(form.price), image_url });
+  };
+
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
       <Header onBack={onBack} title="List an Item" />
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 32px", scrollbarWidth: "none" }}>
         <SectionCard label="Item Details">
           <>
+            {/* Photo Upload */}
+            <div onClick={() => fileRef.current.click()} style={{ width: "100%", height: 160, borderRadius: 16, border: "2px dashed #EDE8DF", background: "#FAF8F5", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginBottom: 12, overflow: "hidden", position: "relative" }}>
+              {imagePreview
+                ? <img src={imagePreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>📷</div>
+                    <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#A8957A" }}>Tap to add photo</div>
+                    <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#C4B5A4", marginTop: 4 }}>Optional but recommended</div>
+                  </div>
+              }
+              {imagePreview && (
+                <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.5)", borderRadius: 8, padding: "4px 10px", fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#fff" }}>Change photo</div>
+              )}
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} style={{ display: "none" }} />
+
             <input placeholder="Product Title *" value={form.title} onChange={e => set("title", e.target.value)} style={inputStyle} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <select value={form.category} onChange={e => set("category", e.target.value)} style={selectStyle}>{["Books","Notes","Gadgets","Parts","Projects","Tools","Assignments"].map(c => <option key={c}>{c}</option>)}</select>
@@ -1223,12 +1296,13 @@ function SellScreen({ onBack, onSubmit }) {
             <input placeholder="Your Department *" value={form.dept} onChange={e => set("dept", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
           </>
         </SectionCard>
-        <PrimaryBtn disabled={!valid} onClick={() => valid && onSubmit({ ...form, price: parseInt(form.price) })} style={{ opacity: valid ? 1 : 0.38 }}>Publish Listing →</PrimaryBtn>
+        <PrimaryBtn disabled={!valid || uploading} onClick={handleSubmit} style={{ opacity: valid && !uploading ? 1 : 0.38 }}>
+          {uploading ? "Uploading photo..." : "Publish Listing →"}
+        </PrimaryBtn>
       </div>
     </Page>
   );
 }
-
 // ══════════════════════════════════════════════════════════════════════════════
 // RIDESHARE
 // ══════════════════════════════════════════════════════════════════════════════
