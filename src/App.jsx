@@ -563,12 +563,12 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
   };
 
   const allNotifs = [
-    ...interests.map(i => ({ ...i, kind: 'listing', itemTitle: myListings.find(l => l.id === i.listing_id)?.title })),
-    ...rideInterests.map(i => ({ ...i, kind: 'ride', itemTitle: myRides.find(r => r.id === i.ride_id) ? `${myRides.find(r => r.id === i.ride_id)?.from_location} → ${myRides.find(r => r.id === i.ride_id)?.to_location}` : 'Ride' })),
-  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  ...interests.map(i => ({ ...i, kind: 'listing', itemTitle: myListings.find(l => l.id === i.listing_id)?.title })),
+  ...rideInterests.map(i => ({ ...i, kind: 'ride_owner', itemTitle: myRides.find(r => r.id === i.ride_id) ? `${myRides.find(r => r.id === i.ride_id)?.from_location} → ${myRides.find(r => r.id === i.ride_id)?.to_location}` : 'Ride' })),
+  ...myRideRequests.map(i => ({ ...i, kind: 'ride_passenger', itemTitle: i.rides ? `${i.rides.from_location} → ${i.rides.to_location}` : 'Ride' })),
+].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  const unreadCount = allNotifs.filter(n => n.status === 'pending').length;
-
+  const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 'ride_passenger' && (n.status === 'connected' || n.status === 'declined'))).length;
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
       {/* Header */}
@@ -722,7 +722,61 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
             {allNotifs.length === 0 && (
               <EmptyState icon="🔔" title="No notifications yet" sub="When someone is interested in your listing or ride, it'll show up here." />
             )}
-            {allNotifs.map(n => (
+            {allNotifs.map(n => {
+              if (n.kind === 'ride_passenger') {
+  const isConfirmed = n.status === 'connected';
+  const isDeclined  = n.status === 'declined';
+  const isPending   = n.status === 'pending';
+
+  return (
+    <div key={n.id} style={{
+      background: isConfirmed ? "#F0FDF4" : isDeclined ? "#FFF1F2" : "#FFFBF0",
+      borderRadius: 14,
+      border: `1px solid ${isConfirmed ? "#86EFAC" : isDeclined ? "#FCA5A5" : "#F59E0B40"}`,
+      padding: "14px 16px",
+      display: "flex",
+      gap: 12,
+      alignItems: "flex-start"
+    }}>
+      <div style={{ fontSize: 22, flexShrink: 0 }}>🚗</div>
+
+      <div style={{ flex: 1 }}>
+        <div style={{
+          fontFamily: "'Montserrat', sans-serif",
+          fontSize: 12,
+          fontWeight: 700,
+          color: isConfirmed ? "#16A34A" : isDeclined ? "#EF4444" : "#92400E",
+          marginBottom: 4
+        }}>
+          {isPending ? "⏳ Seat request pending..." :
+           isConfirmed ? "🎉 Seat Confirmed!" :
+           "❌ Seat Declined"}
+        </div>
+
+        <div style={{
+          fontFamily: "'Montserrat', sans-serif",
+          fontSize: 11,
+          color: "#78716C"
+        }}>
+          {n.itemTitle}
+        </div>
+
+        {isDeclined && (
+          <div style={{
+            fontFamily: "'Montserrat', sans-serif",
+            fontSize: 10,
+            color: "#EF4444",
+            marginTop: 4
+          }}>
+            Try joining another ride.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+            return (
+
               <div key={n.id} onClick={() => { markSeen(n.id); setTab(n.kind === 'listing' ? 'listings' : 'rides'); }} style={{ background: n.status === 'pending' ? "#FFFBF0" : "#fff", borderRadius: 14, border: `1px solid ${n.status === 'pending' ? "#F59E0B40" : "#EDE8DF"}`, padding: "14px 16px", cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <div style={{ fontSize: 22, flexShrink: 0 }}>{n.kind === 'listing' ? "📦" : "🚗"}</div>
                 <div style={{ flex: 1 }}>
@@ -734,7 +788,8 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
                 </div>
                 {n.status === 'pending' && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#F59E0B", flexShrink: 0, marginTop: 4 }} />}
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>
