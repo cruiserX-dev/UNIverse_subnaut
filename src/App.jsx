@@ -654,7 +654,7 @@ const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 
             { k: "rides",    label: "🚗 My Rides",    count: myRides.length },
             { k: "notifs",   label: "🔔 Alerts",      count: unreadCount },
           ].map(t => (
-            <button key={t.k} onClick={() => setTab(t.k)} style={{
+            <button key={t.k} onClick={() => { setTab(t.k); if (t.k === 'notifs' && authUser) { supabase.from('interests').select('*, rides(from_location, to_location)').eq('from_user_id', authUser.id).eq('type', 'ride').order('created_at', { ascending: false }).then(({ data }) => { if (data) setMyRideRequests(data); }); } }} style={{
               flex: 1, padding: "9px 4px", border: "none", borderRadius: 11, cursor: "pointer",
               fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 10, letterSpacing: "0.02em",
               background: tab === t.k ? "#1C1917" : "transparent",
