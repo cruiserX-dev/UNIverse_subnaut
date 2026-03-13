@@ -133,25 +133,27 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
   // Realtime: notify passenger when ride interest status changes
-  useEffect(() => {
-    if (!authUser) return;
-    const channel = supabase
-      .channel('interest-updates')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'interests',
-        filter: `from_user_id=eq.${authUser.id}`,
-      }, (payload) => {
-        const { status, type } = payload.new;
-        if (type === 'ride') {
-          if (status === 'connected') toast_("🎉 Rider confirmed your seat! Don't forget to meet.");
-          if (status === 'declined') toast_("❌ Rider declined your request. Try another ride!");
-        }
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [authUser]);
+useEffect(() => {
+  if (!authUser) return;
+  const channel = supabase
+    .channel('interest-updates-' + authUser.id)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'interests',
+    }, (payload) => {
+      const { from_user_id, status, type } = payload.new;
+      if (from_user_id !== authUser.id) return;
+      if (type === 'ride') {
+        if (status === 'connected') toast_("🎉 Rider confirmed your seat! Don't forget to meet.");
+        if (status === 'declined') toast_("❌ Rider declined your request. Try another ride!");
+      }
+    })
+    .subscribe((realtimeStatus) => {
+      console.log('Realtime subscription status:', realtimeStatus);
+    });
+  return () => supabase.removeChannel(channel);
+}, [authUser]);
 
   const loadProfile = async (userId) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
