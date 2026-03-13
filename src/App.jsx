@@ -499,16 +499,18 @@ const LOCAL_CLUBS = {
 // ══════════════════════════════════════════════════════════════════════════════
 function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
   const [tab, setTab] = useState("listings");
-  const [myListings, setMyListings]   = useState([]);
-  const [myRides, setMyRides]         = useState([]);
-  const [interests, setInterests]     = useState([]);
-  const [rideInterests, setRideInterests] = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [expandedId, setExpandedId]   = useState(null);
+  const [myListings, setMyListings]         = useState([]);
+  const [myRides, setMyRides]               = useState([]);
+  const [interests, setInterests]           = useState([]);
+  const [rideInterests, setRideInterests]   = useState([]);
+  const [myRideRequests, setMyRideRequests] = useState([]); // rides I joined as passenger
+  const [loading, setLoading]               = useState(true);
+  const [expandedId, setExpandedId]         = useState(null);
 
   useEffect(() => {
     if (!authUser) { setLoading(false); return; }
-    const load = async () => {
+
+    const loadAll = async () => {
       const [{ data: ls }, { data: rs }] = await Promise.all([
         supabase.from('listings').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false }),
         supabase.from('rides').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false }),
@@ -516,21 +518,66 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
       if (ls) setMyListings(ls);
       if (rs) setMyRides(rs);
 
-      // Load interests for my listings
+      // Load interests for my listings (I am seller)
       if (ls && ls.length > 0) {
         const ids = ls.map(l => l.id);
         const { data: ints } = await supabase.from('interests').select('*').in('listing_id', ids).order('created_at', { ascending: false });
         if (ints) setInterests(ints);
       }
-      // Load interests for my rides
+      // Load interests for my rides (I am rider/owner)
       if (rs && rs.length > 0) {
         const ids = rs.map(r => r.id);
         const { data: rints } = await supabase.from('interests').select('*').in('ride_id', ids).order('created_at', { ascending: false });
         if (rints) setRideInterests(rints);
       }
+      // Load MY OWN ride join requests (I am passenger) -- to see confirm/decline
+      const { data: myReqs } = await supabase
+        .from('interests')
+        .select('*, rides(from_location, to_location)')
+        .eq('from_user_id', authUser.id)
+        .eq('type', 'ride')
+        .order('created_at', { ascending: false });
+      if (myReqs) setMyRideRequests(myReqs);
+
       setLoading(false);
     };
-    load();
+
+    loadAll();
+
+    // Poll every 5s so passenger sees confirm/decline in real time
+    const seenStatuses = {};
+    const poll = async () => {
+      const { data } = await supabase
+        .from('interests')
+        .select('id, status, rides(from_location, to_location)')
+        .eq('from_user_id', authUser.id)
+        .eq('type', 'ride');
+      if (!data) return;
+      let changed = false;
+      data.forEach(row => {
+        const prev = seenStatuses[row.id];
+        if (prev === undefined) { seenStatuses[row.id] = row.status; return; }
+        if (prev !== row.status) {
+          seenStatuses[row.id] = row.status;
+          changed = true;
+          const route = row.rides ? `${row.rides.from_location} → ${row.rides.to_location}` : 'your ride';
+          if (row.status === 'connected') toast_(`🎉 Seat confirmed for ${route}!`);
+          if (row.status === 'declined')  toast_(`❌ Seat declined for ${route}. Try another ride!`);
+        }
+      });
+      if (changed) {
+        const { data: myReqs } = await supabase
+          .from('interests')
+          .select('*, rides(from_location, to_location)')
+          .eq('from_user_id', authUser.id)
+          .eq('type', 'ride')
+          .order('created_at', { ascending: false });
+        if (myReqs) setMyRideRequests(myReqs);
+      }
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
   }, [authUser]);
 
   const markSeen = async (interestId) => {
@@ -568,7 +615,7 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
   ...myRideRequests.map(i => ({ ...i, kind: 'ride_passenger', itemTitle: i.rides ? `${i.rides.from_location} → ${i.rides.to_location}` : 'Ride' })),
 ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 'ride_passenger' && (n.status === 'connected' || n.status === 'declined'))).length;
+const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 'ride_passenger' && (n.status === 'connected' || n.status === 'declined'))).length;
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
       {/* Header */}
