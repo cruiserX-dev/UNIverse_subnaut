@@ -133,27 +133,25 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
   // Realtime: notify passenger when ride interest status changes
-useEffect(() => {
-  if (!authUser) return;
-  const channel = supabase
-    .channel('interest-updates-' + authUser.id)
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'interests',
-    }, (payload) => {
-      const { from_user_id, status, type } = payload.new;
-      if (from_user_id !== authUser.id) return;
-      if (type === 'ride') {
-        if (status === 'connected') toast_("🎉 Rider confirmed your seat! Don't forget to meet.");
-        if (status === 'declined') toast_("❌ Rider declined your request. Try another ride!");
-      }
-    })
-    .subscribe((realtimeStatus) => {
-      console.log('Realtime subscription status:', realtimeStatus);
-    });
-  return () => supabase.removeChannel(channel);
-}, [authUser]);
+  useEffect(() => {
+    if (!authUser) return;
+    const channel = supabase
+      .channel('interest-updates')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'interests',
+        filter: `from_user_id=eq.${authUser.id}`,
+      }, (payload) => {
+        const { status, type } = payload.new;
+        if (type === 'ride') {
+          if (status === 'connected') toast_("🎉 Rider confirmed your seat! Don't forget to meet.");
+          if (status === 'declined') toast_("❌ Rider declined your request. Try another ride!");
+        }
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [authUser]);
 
   const loadProfile = async (userId) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
@@ -1137,31 +1135,129 @@ function MarketplaceScreen({ products, uni, filter, setFilter, onBack, onView, o
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// PRODUCT DETAIL — with real interest flow
+// PHOTO VIEWER — Fullscreen with arrows
 // ══════════════════════════════════════════════════════════════════════════════
-function ProductDetailScreen({ product, currentUser, onBack, onInterest }) {
-  const [step, setStep] = useState("meet"); // meet | done
-const [location, setLocation] = useState("");
-const [time, setTime] = useState("");
+function PhotoViewer({ photos, startIndex, onClose }) {
+  const [idx, setIdx] = useState(startIndex || 0);
+  const prev = () => setIdx(i => (i - 1 + photos.length) % photos.length);
+  const next = () => setIdx(i => (i + 1) % photos.length);
 
-const handleSend = async () => {
-  if (!location || !time) return;
-  const msg = `Let's meet at ${location} at ${time}`;
-  await onInterest(msg, "");
-  setStep("done");
-};
+  // Close on background click
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.95)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {/* Close button */}
+      <button onClick={onClose} style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: "50%", width: 40, height: 40, fontSize: 20, cursor: "pointer", zIndex: 1 }}>×</button>
+
+      {/* Counter */}
+      {photos.length > 1 && (
+        <div style={{ position: "absolute", top: 24, left: "50%", transform: "translateX(-50%)", fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>
+          {idx + 1} / {photos.length}
+        </div>
+      )}
+
+      {/* Image */}
+      <img
+        src={photos[idx]}
+        alt={`photo ${idx + 1}`}
+        onClick={e => e.stopPropagation()}
+        style={{ maxWidth: "92vw", maxHeight: "82vh", objectFit: "contain", borderRadius: 12 }}
+      />
+
+      {/* Arrows — only show if multiple photos */}
+      {photos.length > 1 && (
+        <>
+          <button onClick={e => { e.stopPropagation(); prev(); }} style={{ position: "absolute", left: 16, background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: "50%", width: 44, height: 44, fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>
+          <button onClick={e => { e.stopPropagation(); next(); }} style={{ position: "absolute", right: 16, background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: "50%", width: 44, height: 44, fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>
+        </>
+      )}
+
+      {/* Dot indicators */}
+      {photos.length > 1 && (
+        <div style={{ position: "absolute", bottom: 28, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6 }}>
+          {photos.map((_, i) => (
+            <div key={i} onClick={e => { e.stopPropagation(); setIdx(i); }} style={{ width: i === idx ? 20 : 6, height: 6, borderRadius: 99, background: i === idx ? "#C4A055" : "rgba(255,255,255,0.3)", cursor: "pointer", transition: "all 0.2s" }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PRODUCT DETAIL — with real interest flow + photo gallery
+// ══════════════════════════════════════════════════════════════════════════════
+const BUYER_MSGS = [
+  "Is this still available?",
+  "I want to buy this. When can we meet?",
+  "Can you do a lower price?",
+  "Can I see it in person before buying?",
+];
+const SELLER_MSGS = [
+  "Yes, still available! When do you want to meet?",
+  "Price is fixed, no negotiation.",
+  "You can check it at the library / canteen.",
+  "Cash on delivery only. No online payment.",
+];
+
+function ProductDetailScreen({ product, currentUser, onBack, onInterest }) {
+  const [step, setStep] = useState("msgs"); // msgs | custom | done
+  const [selectedMsg, setSelectedMsg] = useState("");
+  const [customMsg, setCustomMsg] = useState("");
+  const [showSeller, setShowSeller] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerStart, setViewerStart] = useState(0);
+
+  // Parse photos — support both image_urls (JSON array) and single image_url
+  const photos = (() => {
+    try {
+      const arr = JSON.parse(product.image_urls || "[]");
+      if (arr.length > 0) return arr;
+    } catch {}
+    return product.image_url ? [product.image_url] : [];
+  })();
+
+  const [activePhoto, setActivePhoto] = useState(0);
+
+  const handleSend = async (msg) => {
+    if (!msg.trim()) return;
+    await onInterest(msg.trim(), "");
+    setStep("done");
+  };
 
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
+      {viewerOpen && <PhotoViewer photos={photos} startIndex={viewerStart} onClose={() => setViewerOpen(false)} />}
       <Header onBack={onBack} title="Product Details" />
       <div style={{ flex: 1, overflow: "auto", scrollbarWidth: "none" }}>
         <div style={{ margin: "0 20px 18px", background: "#fff", borderRadius: 22, border: "1px solid #EDE8DF", overflow: "hidden", boxShadow: "0 2px 16px rgba(139,106,62,0.06)" }}>
-<div style={{ height: 190, background: `${CAT_COLORS[product.category] || "#8B6A3E"}10`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 76, overflow: "hidden" }}>
-  {product.image_url
-    ? <img src={product.image_url} alt={product.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-    : CAT_EMOJIS[product.category] || "📦"
-  }
-</div>
+
+          {/* Main photo */}
+          <div
+            onClick={() => { if (photos.length > 0) { setViewerStart(activePhoto); setViewerOpen(true); } }}
+            style={{ height: 220, background: `${CAT_COLORS[product.category] || "#8B6A3E"}10`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 76, overflow: "hidden", cursor: photos.length > 0 ? "zoom-in" : "default", position: "relative" }}
+          >
+            {photos.length > 0
+              ? <img src={photos[activePhoto]} alt={product.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : (CAT_EMOJIS[product.category] || "📦")
+            }
+            {photos.length > 0 && (
+              <div style={{ position: "absolute", bottom: 10, right: 10, background: "rgba(0,0,0,0.45)", borderRadius: 8, padding: "4px 10px", fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#fff" }}>
+                🔍 Tap to zoom
+              </div>
+            )}
+          </div>
+
+          {/* Thumbnail strip — only if multiple photos */}
+          {photos.length > 1 && (
+            <div style={{ display: "flex", gap: 8, padding: "10px 14px", overflowX: "auto", scrollbarWidth: "none" }}>
+              {photos.map((src, i) => (
+                <div key={i} onClick={() => setActivePhoto(i)} style={{ width: 54, height: 54, borderRadius: 10, overflow: "hidden", flexShrink: 0, border: i === activePhoto ? "2px solid #8B6A3E" : "2px solid transparent", cursor: "pointer", opacity: i === activePhoto ? 1 : 0.6, transition: "all 0.2s" }}>
+                  <img src={src} alt={`thumb ${i+1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ padding: "20px 20px 22px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, background: `${CAT_COLORS[product.category]}18`, color: CAT_COLORS[product.category], padding: "4px 10px", borderRadius: 99, letterSpacing: "0.08em", textTransform: "uppercase" }}>{product.category}</span>
@@ -1180,85 +1276,127 @@ const handleSend = async () => {
           </div>
         </div>
 
-        {/* Interest flow */}
-        {/* Meet flow */}
-<div style={{ margin: "0 20px 32px" }}>
-  {step === "meet" && (
-    <div className="anim-0" style={{ background: "#fff", borderRadius: 22, border: "1px solid #EDE8DF", padding: "22px 20px" }}>
-      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#C4A882", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 16 }}>Propose a meetup</div>
-      
-      {/* Preview */}
-      <div style={{ background: "#FAF8F5", borderRadius: 14, padding: "14px 16px", border: "1px solid #EDE8DF", marginBottom: 18, fontFamily: "'Montserrat', sans-serif", fontSize: 13, color: "#1C1917", lineHeight: 2 }}>
-        📍 Let's meet at{" "}
-        <span style={{ color: "#8B6A3E", fontWeight: 700 }}>{location || "___________"}</span>
-        {" "}at{" "}
-        <span style={{ color: "#8B6A3E", fontWeight: 700 }}>{time || "___________"}</span>
-      </div>
+        {/* Message flow */}
+        <div style={{ margin: "0 20px 32px" }}>
 
-      <input
-        placeholder="Location (e.g. Library entrance, Canteen...)"
-        value={location}
-        onChange={e => setLocation(e.target.value)}
-        style={{ ...inputStyle, marginBottom: 10 }}
-      />
-      <input
-        placeholder="Time (e.g. 3:00 PM, After lunch...)"
-        value={time}
-        onChange={e => setTime(e.target.value)}
-        style={{ ...inputStyle, marginBottom: 20 }}
-      />
-      <PrimaryBtn onClick={handleSend} disabled={!location || !time} style={{ opacity: location && time ? 1 : 0.38 }}>
-        Send Meetup Request 📍
-      </PrimaryBtn>
-    </div>
-  )}
-  {step === "done" && (
-    <div className="anim-0" style={{ background: "#F0FDF4", borderRadius: 22, border: "1px solid #86EFAC", padding: "28px 20px", textAlign: "center" }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>📍</div>
-      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#1C1917", marginBottom: 8 }}>Meetup request sent!</div>
-      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#16A34A" }}>Seller will see your proposed meetup in their My Hub.</div>
-    </div>
-  )}
-</div>
+          {/* Quick messages */}
+          {step === "msgs" && (
+            <div className="anim-0" style={{ background: "#fff", borderRadius: 22, border: "1px solid #EDE8DF", padding: "22px 20px" }}>
+
+              {/* Buyer messages */}
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#C4A882", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>💬 Message Seller</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                {BUYER_MSGS.map((msg, i) => (
+                  <button key={i} onClick={() => handleSend(msg)} style={{ textAlign: "left", background: "#FAF8F5", border: "1px solid #EDE8DF", borderRadius: 12, padding: "12px 14px", fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#1C1917", cursor: "pointer", fontWeight: 400, transition: "all 0.15s" }}
+                    onMouseEnter={e => e.target.style.background = "#F0EBE0"}
+                    onMouseLeave={e => e.target.style.background = "#FAF8F5"}
+                  >
+                    {msg}
+                  </button>
+                ))}
+              </div>
+
+              {/* Divider */}
+              <div style={{ borderTop: "1px solid #EDE8DF", marginBottom: 16 }} />
+
+              {/* Seller responses — collapsible */}
+              <button onClick={() => setShowSeller(s => !s)} style={{ width: "100%", textAlign: "left", background: "none", border: "none", fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#8B6A3E", letterSpacing: "0.2em", textTransform: "uppercase", cursor: "pointer", marginBottom: showSeller ? 12 : 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>🏷️ Common Seller Responses</span>
+                <span style={{ fontSize: 14 }}>{showSeller ? "▲" : "▼"}</span>
+              </button>
+              {showSeller && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                  {SELLER_MSGS.map((msg, i) => (
+                    <button key={i} onClick={() => handleSend(msg)} style={{ textAlign: "left", background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 12, padding: "12px 14px", fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#1C1917", cursor: "pointer", fontWeight: 400, transition: "all 0.15s" }}
+                      onMouseEnter={e => e.target.style.background = "#DCFCE7"}
+                      onMouseLeave={e => e.target.style.background = "#F0FDF4"}
+                    >
+                      {msg}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Divider */}
+              <div style={{ borderTop: "1px solid #EDE8DF", margin: "4px 0 16px" }} />
+
+              {/* Custom message */}
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#C4A882", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 10 }}>✏️ Write your own</div>
+              <textarea
+                placeholder="Type a custom message..."
+                value={customMsg}
+                onChange={e => setCustomMsg(e.target.value)}
+                style={{ ...inputStyle, height: 72, resize: "none", marginBottom: 12 }}
+              />
+              <PrimaryBtn onClick={() => handleSend(customMsg)} disabled={!customMsg.trim()} style={{ opacity: customMsg.trim() ? 1 : 0.38 }}>
+                Send Message →
+              </PrimaryBtn>
+            </div>
+          )}
+
+          {/* Success */}
+          {step === "done" && (
+            <div className="anim-0" style={{ background: "#F0FDF4", borderRadius: 22, border: "1px solid #86EFAC", padding: "28px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#1C1917", marginBottom: 8 }}>Message sent!</div>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#16A34A" }}>Seller will see your message in their My Hub.</div>
+            </div>
+          )}
+        </div>
       </div>
     </Page>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SELL SCREEN
+// SELL SCREEN — Multi photo (up to 4)
 // ══════════════════════════════════════════════════════════════════════════════
 function SellScreen({ onBack, onSubmit }) {
   const [form, setForm] = useState({ title: "", category: "Books", price: "", desc: "", seller: "", dept: "", condition: "Good" });
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFiles, setImageFiles] = useState([]); // array of File
+  const [imagePreviews, setImagePreviews] = useState([]); // array of blob URLs
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const valid = form.title && form.price && form.seller && form.dept && form.desc;
+  const MAX_PHOTOS = 4;
 
   const handleImage = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    const remaining = MAX_PHOTOS - imageFiles.length;
+    const toAdd = files.slice(0, remaining);
+    setImageFiles(prev => [...prev, ...toAdd]);
+    setImagePreviews(prev => [...prev, ...toAdd.map(f => URL.createObjectURL(f))]);
+    e.target.value = ""; // reset so same file can be re-selected
+  };
+
+  const removePhoto = (idx) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== idx));
+    setImagePreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleSubmit = async () => {
     if (!valid) return;
     setUploading(true);
-    let image_url = "";
-    if (imageFile) {
-      const ext = imageFile.name.split('.').pop();
-      const path = `listing-${Date.now()}.${ext}`;
-      const { data, error } = await supabase.storage.from('listings').upload(path, imageFile, { upsert: true });
+    const urls = [];
+    for (const file of imageFiles) {
+      const ext = file.name.split('.').pop();
+      const path = `listing-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from('Listings').upload(path, file, { upsert: true });
       if (!error) {
-        const { data: urlData } = supabase.storage.from('listings').getPublicUrl(path);
-        image_url = urlData.publicUrl;
+        const { data: urlData } = supabase.storage.from('Listings').getPublicUrl(path);
+        urls.push(urlData.publicUrl);
       }
     }
     setUploading(false);
-    onSubmit({ ...form, price: parseInt(form.price), image_url });
+    // Save first photo as image_url, all photos as image_urls array (JSON string)
+    onSubmit({
+      ...form,
+      price: parseInt(form.price),
+      image_url: urls[0] || "",
+      image_urls: JSON.stringify(urls),
+    });
   };
 
   return (
@@ -1267,21 +1405,32 @@ function SellScreen({ onBack, onSubmit }) {
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 32px", scrollbarWidth: "none" }}>
         <SectionCard label="Item Details">
           <>
-            {/* Photo Upload */}
-            <div onClick={() => fileRef.current.click()} style={{ width: "100%", height: 160, borderRadius: 16, border: "2px dashed #EDE8DF", background: "#FAF8F5", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginBottom: 12, overflow: "hidden", position: "relative" }}>
-              {imagePreview
-                ? <img src={imagePreview} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>📷</div>
-                    <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#A8957A" }}>Tap to add photo</div>
-                    <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#C4B5A4", marginTop: 4 }}>Optional but recommended</div>
+            {/* Multi Photo Upload */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                {imagePreviews.map((src, idx) => (
+                  <div key={idx} style={{ position: "relative", aspectRatio: "1", borderRadius: 12, overflow: "hidden", border: "1px solid #EDE8DF" }}>
+                    <img src={src} alt={`photo ${idx+1}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <button onClick={() => removePhoto(idx)} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                    {idx === 0 && <div style={{ position: "absolute", bottom: 4, left: 4, background: "#8B6A3E", borderRadius: 6, padding: "2px 6px", fontFamily: "'Montserrat', sans-serif", fontSize: 8, color: "#fff", fontWeight: 700 }}>COVER</div>}
                   </div>
-              }
-              {imagePreview && (
-                <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.5)", borderRadius: 8, padding: "4px 10px", fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#fff" }}>Change photo</div>
+                ))}
+                {imagePreviews.length < MAX_PHOTOS && (
+                  <div onClick={() => fileRef.current.click()} style={{ aspectRatio: "1", borderRadius: 12, border: "2px dashed #EDE8DF", background: "#FAF8F5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                    <div style={{ fontSize: 22 }}>📷</div>
+                    <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#A8957A", marginTop: 4 }}>
+                      {imagePreviews.length === 0 ? "Add photo" : "+ Add"}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {imagePreviews.length > 0 && (
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#C4B5A4", marginTop: 6 }}>
+                  {imagePreviews.length}/{MAX_PHOTOS} photos · First photo is cover · Tap × to remove
+                </div>
               )}
             </div>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} style={{ display: "none" }} />
+            <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImage} style={{ display: "none" }} />
 
             <input placeholder="Product Title *" value={form.title} onChange={e => set("title", e.target.value)} style={inputStyle} />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -1299,7 +1448,7 @@ function SellScreen({ onBack, onSubmit }) {
           </>
         </SectionCard>
         <PrimaryBtn disabled={!valid || uploading} onClick={handleSubmit} style={{ opacity: valid && !uploading ? 1 : 0.38 }}>
-          {uploading ? "Uploading photo..." : "Publish Listing →"}
+          {uploading ? `Uploading ${imageFiles.length} photo${imageFiles.length > 1 ? "s" : ""}...` : "Publish Listing →"}
         </PrimaryBtn>
       </div>
     </Page>
