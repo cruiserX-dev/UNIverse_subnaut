@@ -674,7 +674,7 @@ const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 
       {/* Profile edit sheet */}
       {showProfile && (
         <div style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowProfile(false)}>
-          <div onClick={e => e.stopPropagation()} className="anim-0" style={{ background: "#aaa9e2e5", borderRadius: "24px 24px 0 0", padding: "28px 24px 48px", width: "100%", maxWidth: 960 }}>
+          <div onClick={e => e.stopPropagation()} className="anim-0" style={{ background: "#aaa9e2", borderRadius: "24px 24px 0 0", padding: "28px 24px 48px", width: "100%", maxWidth: 960 }}>
             <div style={{ width: 40, height: 4, background: "#EDE8DF", borderRadius: 99, margin: "0 auto 24px" }} />
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg, #ff24cc, #5e6bf0)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 30, fontFamily: "'Playfair Display', serif", marginBottom: 8 }}>
@@ -713,8 +713,8 @@ const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 
       </div>
 
       {/* User card — tap to edit profile */}
-      <div onClick={() => setShowProfile(true)} style={{ margin: "20px 24px 0", background: "linear-gradient(158deg, #1a1a1a, #21354730)", borderRadius: 20, padding: "20px 22px", display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }}>
-        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg, #61b4f5, #af0be6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 22, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>
+      <div onClick={() => setShowProfile(true)} style={{ margin: "20px 24px 0", background: "linear-gradient(135deg, #010101, #fffafd)", borderRadius: 20, padding: "20px 22px", display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }}>
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg, #e1e7ec, #0e0112)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 22, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>
           {currentUser?.name?.[0] || "S"}
         </div>
         <div style={{ flex: 1 }}>
