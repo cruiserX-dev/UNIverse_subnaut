@@ -132,22 +132,21 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
-  // Realtime: notify passenger when ride interest status changes
+  // Realtime: passenger ko instant notification jab rider confirm/decline kare
   useEffect(() => {
     if (!authUser) return;
     const channel = supabase
-      .channel('interest-updates')
+      .channel(`ride-notif-${authUser.id}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'interests',
-        filter: `from_user_id=eq.${authUser.id}`,
       }, (payload) => {
-        const { status, type } = payload.new;
-        if (type === 'ride') {
-          if (status === 'connected') toast_("🎉 Rider confirmed your seat! Don't forget to meet.");
-          if (status === 'declined') toast_("❌ Rider declined your request. Try another ride!");
-        }
+        const row = payload.new;
+        if (row.from_user_id !== authUser.id) return;
+        if (row.type !== 'ride') return;
+        if (row.status === 'connected') toast_("🎉 Rider confirmed your seat! Check Alerts in My Hub.");
+        if (row.status === 'declined')  toast_("❌ Rider declined your request. Try another ride!");
       })
       .subscribe();
     return () => supabase.removeChannel(channel);
@@ -289,6 +288,7 @@ export default function App() {
       seats: parseInt(ride.seats),
       cost: parseInt(ride.cost),
       status: 'active',
+      contact: ride.contact || '',
     };
     if (authUser && profile?.id !== 'guest') {
       const { data } = await supabase.from('rides').insert(row).select().single();
@@ -1608,6 +1608,15 @@ function RideshareScreen({ rides, uni, confirmed, onBack, onJoin, onOffer, curre
                     {confirmed[ride.id] ? "✓ Reserved" : ride.seats === 0 ? "Full" : "Join Ride"}
                   </button>
                 </div>
+                {confirmed[ride.id] && ride.contact && (
+                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 12, padding: "10px 14px" }}>
+                    <span style={{ fontSize: 20 }}>📲</span>
+                    <div>
+                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#16A34A", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 2 }}>Driver Contact</div>
+                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 14, color: "#1C1917", fontWeight: 700, letterSpacing: "0.04em" }}>{ride.contact}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -1621,9 +1630,9 @@ function RideshareScreen({ rides, uni, confirmed, onBack, onJoin, onOffer, curre
 // OFFER RIDE
 // ══════════════════════════════════════════════════════════════════════════════
 function OfferRideScreen({ onBack, onSubmit }) {
-  const [form, setForm] = useState({ driver: "", from: "", to: "", date: "", time: "", seats: "", cost: "" });
+  const [form, setForm] = useState({ driver: "", from: "", to: "", date: "", time: "", seats: "", cost: "", contact: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const valid = Object.values(form).every(v => String(v).trim());
+  const valid = form.driver && form.from && form.to && form.date && form.time && form.seats && form.cost && form.contact;
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
       <Header onBack={onBack} title="Offer a Ride" />
@@ -1644,7 +1653,9 @@ function OfferRideScreen({ onBack, onSubmit }) {
         </SectionCard>
         <SectionCard label="Driver Info">
           <>
-            <input placeholder="Your Name *" value={form.driver} onChange={e => set("driver", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
+            <input placeholder="Your Name *" value={form.driver} onChange={e => set("driver", e.target.value)} style={inputStyle} />
+            <input placeholder="WhatsApp / Phone Number *" type="tel" value={form.contact} onChange={e => set("contact", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
+            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 6 }}>🔒 Only shown to passengers who join your ride</div>
           </>
         </SectionCard>
         <PrimaryBtn disabled={!valid} onClick={() => valid && onSubmit({ ...form, seats: parseInt(form.seats), cost: parseInt(form.cost) })} style={{ opacity: valid ? 1 : 0.38 }}>Post My Ride 🚗</PrimaryBtn>
