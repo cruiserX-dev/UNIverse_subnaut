@@ -148,7 +148,7 @@ export default function App() {
           .from('interests').select('id,status,type,from_user_id').eq('id', rowId).single();
         if (!fr || fr.from_user_id !== authUser.id) return;
         if (fr.type !== 'ride') return;
-        if (fr.status === 'connected') toast_("🎉 Rider confirmed your seat! Check Alerts in My Hub.");
+        if (fr.status === 'connected') toast_("🎉 Rider confirmed your seat! Check Alerts in My Hub, or just drop a call.");
         if (fr.status === 'declined')  toast_("❌ Rider declined your request. Try another ride!");
       })
       .subscribe();
@@ -576,13 +576,15 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
     setRideInterests(i => i.map(x => x.id === interestId ? { ...x, status: 'seen' } : x));
   };
   const confirmSeat = async (interestId) => {
-    await supabase.from('interests').update({ status: 'connected' }).eq('id', interestId);
+    const { error } = await supabase.from('interests').update({ status: 'connected' }).eq('id', interestId);
+    if (error) { console.error("confirmSeat error:", error.message); toast_("⚠️ Could not confirm - check console"); return; }
     setRideInterests(i => i.map(x => x.id === interestId ? { ...x, status: 'connected' } : x));
     toast_("✅ Seat confirmed!");
   };
 
   const declineSeat = async (interestId) => {
-    await supabase.from('interests').update({ status: 'declined' }).eq('id', interestId);
+    const { error } = await supabase.from('interests').update({ status: 'declined' }).eq('id', interestId);
+    if (error) { console.error("declineSeat error:", error.message); toast_("⚠️ Could not decline - check console"); return; }
     setRideInterests(i => i.map(x => x.id === interestId ? { ...x, status: 'declined' } : x));
     toast_("❌ Request declined.");
   };
@@ -853,12 +855,17 @@ function InterestCard({ interest, onSeen, onConfirm, onDecline }) {
         📍 {interest.message}
       </div>
 
-      {/* Confirm/Decline — only for pending ride interests */}
-      {interest.status === 'pending' && interest.ride_id && onConfirm && (
+      {/* Confirm/Decline buttons based on current status */}
+      {interest.ride_id && onConfirm && interest.status !== 'declined' && (
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => onConfirm(interest.id)} style={{ flex: 1, background: "#1C1917", border: "none", color: "#FAF8F5", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>✅ Confirm Seat</button>
-          <button onClick={() => onDecline(interest.id)} style={{ flex: 1, background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#EF4444", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>❌ Decline</button>
+          {interest.status === 'pending' && (
+            <button onClick={() => onConfirm(interest.id)} style={{ flex: 1, background: "#1C1917", border: "none", color: "#FAF8F5", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>✅ Confirm Seat</button>
+          )}
+          <button onClick={() => onDecline(interest.id)} style={{ flex: interest.status === 'pending' ? 1 : 2, background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#EF4444", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>❌Wanna Decline?</button>
         </div>
+      )}
+      {interest.ride_id && onConfirm && interest.status === 'declined' && (
+        <button onClick={() => onConfirm(interest.id)} style={{ width: "100%", background: "#F0FDF4", border: "1px solid #86EFAC", color: "#16A34A", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>✅ Confirm instead</button>
       )}
     </div>
   );
@@ -1644,8 +1651,8 @@ function OfferRideScreen({ onBack, onSubmit }) {
         <SectionCard label="Driver Info">
           <>
             <input placeholder="Your Name *" value={form.driver} onChange={e => set("driver", e.target.value)} style={inputStyle} />
-            <input placeholder="WhatsApp / Phone Number *" type="tel" value={form.contact} onChange={e => set("contact", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
-            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 6 }}>🔒 Only shown to passengers who join your ride</div>
+            <input placeholder="Phone Number *" type="tel" value={form.contact} onChange={e => set("contact", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
+            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 6 }}>🔒Don't worry! only shown to passengers who join your ride</div>
           </>
         </SectionCard>
         <PrimaryBtn disabled={!valid} onClick={() => valid && onSubmit({ ...form, seats: parseInt(form.seats), cost: parseInt(form.cost) })} style={{ opacity: valid ? 1 : 0.38 }}>Post My Ride 🚗</PrimaryBtn>
