@@ -132,7 +132,7 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
-  // Realtime: passenger ko instant notification jab rider confirm/decline kare
+  // Realtime: passenger instant toast + fresh fetch on rider confirm/decline
   useEffect(() => {
     if (!authUser) return;
     const channel = supabase
@@ -141,12 +141,15 @@ export default function App() {
         event: 'UPDATE',
         schema: 'public',
         table: 'interests',
-      }, (payload) => {
-        const row = payload.new;
-        if (row.from_user_id !== authUser.id) return;
-        if (row.type !== 'ride') return;
-        if (row.status === 'connected') toast_("🎉 Rider confirmed your seat! Check Alerts in My Hub.");
-        if (row.status === 'declined')  toast_("❌ Rider declined your request. Try another ride!");
+      }, async (payload) => {
+        const rowId = payload.new?.id || payload.old?.id;
+        if (!rowId) return;
+        const { data: fr } = await supabase
+          .from('interests').select('id,status,type,from_user_id').eq('id', rowId).single();
+        if (!fr || fr.from_user_id !== authUser.id) return;
+        if (fr.type !== 'ride') return;
+        if (fr.status === 'connected') toast_("🎉 Rider confirmed your seat! Check Alerts in My Hub.");
+        if (fr.status === 'declined')  toast_("❌ Rider declined your request. Try another ride!");
       })
       .subscribe();
     return () => supabase.removeChannel(channel);
@@ -544,40 +547,27 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
 
     loadAll();
 
-    // Poll every 5s so passenger sees confirm/decline in real time
-    const seenStatuses = {};
-    const poll = async () => {
-      const { data } = await supabase
-        .from('interests')
-        .select('id, status, rides(from_location, to_location)')
-        .eq('from_user_id', authUser.id)
-        .eq('type', 'ride');
-      if (!data) return;
-      let changed = false;
-      data.forEach(row => {
-        const prev = seenStatuses[row.id];
-        if (prev === undefined) { seenStatuses[row.id] = row.status; return; }
-        if (prev !== row.status) {
-          seenStatuses[row.id] = row.status;
-          changed = true;
-          const route = row.rides ? `${row.rides.from_location} → ${row.rides.to_location}` : 'your ride';
-          if (row.status === 'connected') toast_(`🎉 Seat confirmed for ${route}!`);
-          if (row.status === 'declined')  toast_(`❌ Seat declined for ${route}. Try another ride!`);
-        }
-      });
-      if (changed) {
-        const { data: myReqs } = await supabase
-          .from('interests')
-          .select('*, rides(from_location, to_location)')
-          .eq('from_user_id', authUser.id)
-          .eq('type', 'ride')
-          .order('created_at', { ascending: false });
-        if (myReqs) setMyRideRequests(myReqs);
-      }
-    };
-    poll();
-    const interval = setInterval(poll, 5000);
-    return () => clearInterval(interval);
+    // Realtime: MyHub UI update when rider confirms/declines
+    const channel = supabase
+      .channel(`myhub-${authUser.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'interests',
+      }, async (payload) => {
+        const rowId = payload.new?.id || payload.old?.id;
+        if (!rowId) return;
+        const { data: fr } = await supabase
+          .from('interests').select('id,status,type,from_user_id').eq('id', rowId).single();
+        if (!fr || fr.from_user_id !== authUser.id) return;
+        if (fr.type !== 'ride') return;
+        setMyRideRequests(prev =>
+          prev.map(r => r.id === fr.id ? { ...r, status: fr.status } : r)
+        );
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, [authUser]);
 
   const markSeen = async (interestId) => {
