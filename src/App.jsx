@@ -33,6 +33,7 @@ const S = {
   OFFER_RIDE:  8,
   CLUBS:       9,
   CREATE_CLUB: 10,
+  CLUB_DETAIL: 12,
   MY_HUB:      11, // ← NEW: user dashboard
 };
 
@@ -59,7 +60,8 @@ export default function App() {
   // ── Marketplace / Rides / Clubs (live from DB) ─────────────────────────────
   const [listings, setListings]     = useState([]);
   const [rides, setRides]           = useState([]);
-  const [clubs, setClubs]           = useState({});   // { uniId: [] } still local
+  const [clubs, setClubs]           = useState([]);   // array from DB
+  const [selectedClub, setSelectedClub] = useState(null);
 
   // ── Within-uni navigation ──────────────────────────────────────────────────
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -148,19 +150,28 @@ export default function App() {
           .from('interests').select('id,status,type,from_user_id').eq('id', rowId).single();
         if (!fr || fr.from_user_id !== authUser.id) return;
         if (fr.type !== 'ride') return;
-        if (fr.status === 'connected') toast_("🎉 Rider confirmed your seat! Check Alerts in My Hub, or just drop a call.");
+        if (fr.status === 'connected') toast_("🎉 Rider confirmed your seat! Check Alerts in My Hub.");
         if (fr.status === 'declined')  toast_("❌ Rider declined your request. Try another ride!");
       })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [authUser]);
 
+  const loadJoinedClubs = async (userId) => {
+    const { data } = await supabase.from('club_members').select('club_id, name, department').eq('user_id', userId);
+    if (data) {
+      const map = {};
+      data.forEach(m => { map[m.club_id] = { name: m.name, dept: m.department }; });
+      setJoinedClubs(map);
+    }
+  };
+
   const loadProfile = async (userId) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (data) {
       setProfile(data);
       if (data.university_id) {
-        await loadUniData(data.university_id);
+        await Promise.all([loadUniData(data.university_id), loadJoinedClubs(userId)]);
         setScreen(S.HOME);
       } else {
         setScreen(S.GATEWAY);
@@ -170,12 +181,14 @@ export default function App() {
   };
 
   const loadUniData = async (uniId) => {
-    const [{ data: ls }, { data: rs }] = await Promise.all([
+    const [{ data: ls }, { data: rs }, { data: cs }] = await Promise.all([
       supabase.from('listings').select('*').eq('uni_id', uniId).eq('status', 'active').order('created_at', { ascending: false }),
       supabase.from('rides').select('*').eq('uni_id', uniId).eq('status', 'active').order('created_at', { ascending: false }),
+      supabase.from('clubs').select('*').eq('uni_id', uniId).order('created_at', { ascending: false }),
     ]);
     if (ls) setListings(ls);
     if (rs) setRides(rs);
+    if (cs) setClubs(cs);
   };
 
   // ── Auth handlers ──────────────────────────────────────────────────────────
@@ -265,6 +278,7 @@ export default function App() {
       dept: item.dept,
       status: 'active',
       image_url: item.image_url || '',
+      image_urls: item.image_urls || '[]',
     };
     if (authUser && profile?.id !== 'guest') {
       const { data } = await supabase.from('listings').insert(row).select().single();
@@ -331,23 +345,48 @@ export default function App() {
     toast_("🎉 Seat reserved! Meetup request sent to driver.");
   };
 
-  // ── Clubs (still local for now) ────────────────────────────────────────────
-  const getLocalClubs = () => {
-    const uniId = profile?.university_id;
-    if (!uniId) return [];
-    return clubs[uniId] || uniDB[uniId]?.clubs || LOCAL_CLUBS[uniId] || [];
+  // ── Clubs (DB-backed) ────────────────────────────────────────────
+  const handleJoinClub = async (club, memberName, memberDept) => {
+    if (!authUser) { toast_("❌ Sign in to join clubs"); return; }
+    const { error } = await supabase.from('club_members').insert({
+      club_id: club.id,
+      user_id: authUser.id,
+      name: memberName,
+      department: memberDept,
+    });
+    if (error) { toast_("❌ Already a member or error joining"); return; }
+    await supabase.from('clubs').update({ member_count: club.member_count + 1 }).eq('id', club.id);
+    const updatedClub = { ...club, member_count: club.member_count + 1 };
+    setClubs(cs => cs.map(c => c.id === club.id ? updatedClub : c));
+    setJoinedClubs(j => ({ ...j, [club.id]: { name: memberName, dept: memberDept } }));
+    setSelectedClub(updatedClub);
+    setScreen(S.CLUB_DETAIL);
+    toast_("🏆 Joined " + club.name + "! Welcome to the club.");
   };
 
-  const handleJoinClub = (id) => {
-    setJoinedClubs(j => ({ ...j, [id]: true }));
-    toast_("🏆 Joined!");
-  };
-
-  const handleCreateClub = (club) => {
+  const handleCreateClub = async (club) => {
+    if (!authUser) { toast_("❌ Sign in to create clubs"); return; }
     const uniId = profile?.university_id;
-    const newClub = { ...club, id: Date.now(), members: 1, icon: "⭐", color: "#6366F1" };
-    setClubs(c => ({ ...c, [uniId]: [newClub, ...(c[uniId] || getLocalClubs())] }));
-    toast_("🎊 Club created in " + uni?.shortName + "!");
+    const ICONS = { Tech: "⚡", Sports: "⚽", Arts: "🎨", Leadership: "🏆", Social: "🌟", General: "⭐" };
+    const COLORS = { Tech: "#6366F1", Sports: "#10B981", Arts: "#F59E0B", Leadership: "#8B6A3E", Social: "#EC4899", General: "#6366F1" };
+    const { data, error } = await supabase.from('clubs').insert({
+      uni_id: uniId,
+      name: club.name,
+      description: club.desc,
+      category: club.category,
+      contact: club.contact,
+      icon: ICONS[club.category] || "⭐",
+      color: COLORS[club.category] || "#6366F1",
+      created_by: authUser.id,
+      creator_name: profile.name,
+      member_count: 1,
+    }).select().single();
+    if (error || !data) { toast_("❌ Could not create club"); return; }
+    // Creator auto-joins
+    await supabase.from('club_members').insert({ club_id: data.id, user_id: authUser.id, name: profile.name, department: club.dept || 'Creator' });
+    setClubs(cs => [data, ...cs]);
+    setJoinedClubs(j => ({ ...j, [data.id]: { name: profile.name, dept: club.dept || "Creator" } }));
+    toast_("🎊 Club created!");
     setScreen(S.CLUBS);
   };
 
@@ -453,16 +492,28 @@ export default function App() {
 
         {screen === S.CLUBS && uni &&
           <ClubsScreen
-            clubs={getLocalClubs()} uni={uni}
+            clubs={clubs} uni={uni}
             filter={clubFilter} setFilter={setClubFilter}
             joined={joinedClubs}
+            authUser={authUser}
             onBack={() => setScreen(S.HOME)}
             onJoin={handleJoinClub}
             onCreate={() => setScreen(S.CREATE_CLUB)}
+            onOpenClub={(club) => { setSelectedClub(club); setScreen(S.CLUB_DETAIL); }}
           />}
 
         {screen === S.CREATE_CLUB && uni &&
-          <CreateClubScreen onBack={() => setScreen(S.CLUBS)} onSubmit={handleCreateClub} />}
+          <CreateClubScreen onBack={() => setScreen(S.CLUBS)} onSubmit={handleCreateClub} profile={profile} />}
+
+        {screen === S.CLUB_DETAIL && selectedClub &&
+          <ClubDetailScreen
+            club={clubs.find(c => c.id === selectedClub.id) || selectedClub}
+            authUser={authUser}
+            profile={profile}
+            joined={joinedClubs}
+            onJoin={handleJoinClub}
+            onBack={() => setScreen(S.CLUBS)}
+          />}
 
         {screen === S.MY_HUB &&
           <MyHubScreen
@@ -515,8 +566,8 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
 
     const loadAll = async () => {
       const [{ data: ls }, { data: rs }] = await Promise.all([
-        supabase.from('listings').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false }),
-        supabase.from('rides').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false }),
+        supabase.from('listings').select('*').eq('user_id', authUser.id).eq('status', 'active').order('created_at', { ascending: false }),
+        supabase.from('rides').select('*').eq('user_id', authUser.id).eq('status', 'active').order('created_at', { ascending: false }),
       ]);
       if (ls) setMyListings(ls);
       if (rs) setMyRides(rs);
@@ -861,7 +912,7 @@ function InterestCard({ interest, onSeen, onConfirm, onDecline }) {
           {interest.status === 'pending' && (
             <button onClick={() => onConfirm(interest.id)} style={{ flex: 1, background: "#1C1917", border: "none", color: "#FAF8F5", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>✅ Confirm Seat</button>
           )}
-          <button onClick={() => onDecline(interest.id)} style={{ flex: interest.status === 'pending' ? 1 : 2, background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#EF4444", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>❌Wanna Decline?</button>
+          <button onClick={() => onDecline(interest.id)} style={{ flex: interest.status === 'pending' ? 1 : 2, background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#EF4444", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>❌ Decline</button>
         </div>
       )}
       {interest.ride_id && onConfirm && interest.status === 'declined' && (
@@ -1651,8 +1702,8 @@ function OfferRideScreen({ onBack, onSubmit }) {
         <SectionCard label="Driver Info">
           <>
             <input placeholder="Your Name *" value={form.driver} onChange={e => set("driver", e.target.value)} style={inputStyle} />
-            <input placeholder="Phone Number *" type="tel" value={form.contact} onChange={e => set("contact", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
-            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 6 }}>🔒Don't worry! only shown to passengers who join your ride</div>
+            <input placeholder="WhatsApp / Phone Number *" type="tel" value={form.contact} onChange={e => set("contact", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
+            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 6 }}>🔒 Only shown to passengers who join your ride</div>
           </>
         </SectionCard>
         <PrimaryBtn disabled={!valid} onClick={() => valid && onSubmit({ ...form, seats: parseInt(form.seats), cost: parseInt(form.cost) })} style={{ opacity: valid ? 1 : 0.38 }}>Post My Ride 🚗</PrimaryBtn>
@@ -1662,9 +1713,10 @@ function OfferRideScreen({ onBack, onSubmit }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// CLUBS
 // ══════════════════════════════════════════════════════════════════════════════
-function ClubsScreen({ clubs, uni, filter, setFilter, joined, onBack, onJoin, onCreate }) {
+// CLUBS LIST
+// ══════════════════════════════════════════════════════════════════════════════
+function ClubsScreen({ clubs, uni, filter, setFilter, joined, authUser, onBack, onJoin, onCreate, onOpenClub }) {
   const cats = ["All", "Tech", "Sports", "Arts", "Leadership", "Social"];
   const filtered = filter === "All" ? clubs : clubs.filter(c => c.category === filter);
   return (
@@ -1677,10 +1729,10 @@ function ClubsScreen({ clubs, uni, filter, setFilter, joined, onBack, onJoin, on
           <button key={c} onClick={() => setFilter(c)} style={{ padding: "7px 15px", borderRadius: 99, border: filter === c ? "none" : "1px solid #EDE8DF", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", background: filter === c ? "#1C1917" : "#fff", color: filter === c ? "#FAF8F5" : "#78716C", transition: "all 0.2s" }}>{c}</button>
         ))}
       </div>
-      <div className="clubs-grid" style={{ flex: 1, overflow: "auto", padding: "0 20px 32px", display: "grid", gridTemplateColumns: "1fr", gap: 14, scrollbarWidth: "none" }}>
+      <div style={{ flex: 1, overflow: "auto", padding: "0 20px 32px", display: "flex", flexDirection: "column", gap: 14, scrollbarWidth: "none" }}>
         {filtered.length === 0 && <EmptyState icon="🏆" title="No clubs yet" sub="Start the first club!" />}
         {filtered.map((club, i) => (
-          <div key={club.id} className="card-lift fade-in-item" style={{ animationDelay: `${i * 0.05}s`, background: "#fff", borderRadius: 20, border: "1px solid #EDE8DF", overflow: "hidden", boxShadow: "0 2px 10px rgba(139,106,62,0.05)" }}>
+          <div key={club.id} className="card-lift fade-in-item" onClick={() => onOpenClub(club)} style={{ animationDelay: `${i * 0.05}s`, background: "#fff", borderRadius: 20, border: "1px solid #EDE8DF", overflow: "hidden", boxShadow: "0 2px 10px rgba(139,106,62,0.05)", cursor: "pointer" }}>
             <div style={{ height: 3, background: club.color }} />
             <div style={{ padding: "18px 18px" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
@@ -1689,18 +1741,15 @@ function ClubsScreen({ clubs, uni, filter, setFilter, joined, onBack, onJoin, on
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                     <div>
                       <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: "#1C1917" }}>{club.name}</div>
-                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: club.color, fontWeight: 600, marginTop: 2 }}>{club.category} · {club.members} members</div>
+                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: club.color, fontWeight: 600, marginTop: 2 }}>{club.category} · {club.member_count || 0} members</div>
                     </div>
-                    <button disabled={joined[club.id]} onClick={() => !joined[club.id] && onJoin(club.id)} style={{ padding: "7px 16px", borderRadius: 10, border: joined[club.id] ? `1px solid ${club.color}` : "none", cursor: joined[club.id] ? "default" : "pointer", fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 11, flexShrink: 0, background: joined[club.id] ? `${club.color}12` : club.color, color: joined[club.id] ? club.color : "#fff", transition: "all 0.2s" }}>
-                      {joined[club.id] ? "✓ Joined" : "Join"}
-                    </button>
+                    <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: joined[club.id] ? club.color : "#C4B5A4", fontWeight: 600 }}>
+                      {joined[club.id] ? "✓ Joined" : "Tap to view"}
+                    </div>
                   </div>
-                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#78716C", lineHeight: 1.6, fontWeight: 400, marginTop: 8 }}>{club.desc}</div>
-                  {club.event && (
-                    <div style={{ marginTop: 12, background: "#FAF8F5", borderRadius: 10, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, border: "1px solid #EDE8DF" }}>
-                      <span style={{ fontSize: 12 }}>📅</span>
-                      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#78716C" }}>Next: <span style={{ color: "#1C1917", fontWeight: 600 }}>{club.event}</span> · {club.eventDate}</span>
-                    </div>
+                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#78716C", lineHeight: 1.6, fontWeight: 400, marginTop: 6 }}>{club.description}</div>
+                  {club.contact && (
+                    <div style={{ marginTop: 8, fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A" }}>📲 {club.contact}</div>
                   )}
                 </div>
               </div>
@@ -1713,12 +1762,251 @@ function ClubsScreen({ clubs, uni, filter, setFilter, joined, onBack, onJoin, on
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// CLUB DETAIL — Feed + Members
+// ══════════════════════════════════════════════════════════════════════════════
+function ClubDetailScreen({ club, authUser, profile, joined, onJoin, onBack }) {
+  const [tab, setTab] = useState("feed");
+  const [posts, setPosts] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [postText, setPostText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState("");
+  const [expandedReplies, setExpandedReplies] = useState({});
+  const [showJoinForm, setShowJoinForm] = useState(false);
+  const [joinName, setJoinName] = useState(profile?.name || "");
+  const [joinDept, setJoinDept] = useState("");
+  const isMember = !!joined[club.id];
+
+  useEffect(() => {
+    const load = async () => {
+      const [{ data: ps }, { data: ms }] = await Promise.all([
+        supabase.from("club_posts").select("*, club_likes(user_id)").eq("club_id", club.id).order("created_at", { ascending: false }),
+        supabase.from("club_members").select("*").eq("club_id", club.id).order("joined_at", { ascending: true }),
+      ]);
+      if (ps) setPosts(ps);
+      if (ms) setMembers(ms);
+      setLoading(false);
+    };
+    load();
+  }, [club.id]);
+
+  const handlePost = async () => {
+    if (!postText.trim() || !isMember) return;
+    const { data } = await supabase.from("club_posts").insert({
+      club_id: club.id,
+      user_id: authUser.id,
+      author_name: joined[club.id]?.name || profile?.name,
+      author_dept: joined[club.id]?.dept || "",
+      content: postText.trim(),
+    }).select("*, club_likes(user_id)").single();
+    if (data) { setPosts(p => [data, ...p]); setPostText(""); }
+  };
+
+  const handleLike = async (post) => {
+    if (!authUser) return;
+    const alreadyLiked = post.club_likes?.some(l => l.user_id === authUser.id);
+    if (alreadyLiked) {
+      await supabase.from("club_likes").delete().eq("post_id", post.id).eq("user_id", authUser.id);
+      setPosts(ps => ps.map(p => p.id === post.id ? { ...p, club_likes: p.club_likes.filter(l => l.user_id !== authUser.id) } : p));
+    } else {
+      await supabase.from("club_likes").insert({ post_id: post.id, user_id: authUser.id, club_id: club.id });
+      setPosts(ps => ps.map(p => p.id === post.id ? { ...p, club_likes: [...(p.club_likes || []), { user_id: authUser.id }] } : p));
+    }
+  };
+
+  const handleReply = async (postId) => {
+    if (!replyText.trim() || !isMember) return;
+    const { data } = await supabase.from("club_replies").insert({
+      post_id: postId,
+      club_id: club.id,
+      user_id: authUser.id,
+      author_name: joined[club.id]?.name || profile?.name,
+      author_dept: joined[club.id]?.dept || "",
+      content: replyText.trim(),
+    }).select().single();
+    if (data) {
+      setPosts(ps => ps.map(p => p.id === postId ? { ...p, replies: [...(p.replies || []), data] } : p));
+      setReplyText(""); setReplyingTo(null);
+    }
+  };
+
+  const loadReplies = async (postId) => {
+    if (expandedReplies[postId]) { setExpandedReplies(r => ({ ...r, [postId]: false })); return; }
+    const { data } = await supabase.from("club_replies").select("*").eq("post_id", postId).order("created_at", { ascending: true });
+    setPosts(ps => ps.map(p => p.id === postId ? { ...p, replies: data || [] } : p));
+    setExpandedReplies(r => ({ ...r, [postId]: true }));
+  };
+
+  const handleJoinSubmit = () => {
+    if (!joinName.trim() || !joinDept.trim()) return;
+    onJoin(club, joinName, joinDept);
+    setMembers(m => [...m, { id: Date.now(), name: joinName, department: joinDept }]);
+    setShowJoinForm(false);
+  };
+
+  return (
+    <Page style={{ display: "flex", flexDirection: "column" }}>
+      <Header onBack={onBack} title={club.name} />
+      <div style={{ flex: 1, overflow: "auto", scrollbarWidth: "none" }}>
+
+        {/* Club header */}
+        <div style={{ margin: "0 20px 16px", background: "linear-gradient(135deg, #1C1917, #3D2B1F)", borderRadius: 20, padding: "20px", position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: -20, right: -20, fontSize: 80, opacity: 0.08 }}>{club.icon}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 16, background: `${club.color}25`, border: `2px solid ${club.color}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>{club.icon}</div>
+            <div>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#FAF8F5" }}>{club.name}</div>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: club.color, fontWeight: 600, marginTop: 2 }}>{club.category} · {club.member_count || 0} members</div>
+            </div>
+          </div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#C4B5A4", lineHeight: 1.6, marginBottom: 12 }}>{club.description}</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A" }}>
+              {club.contact && <span>📲 {club.contact}</span>}
+            </div>
+            {!isMember && (
+              <button onClick={() => setShowJoinForm(true)} style={{ background: club.color, border: "none", color: "#fff", borderRadius: 10, padding: "8px 18px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>Join Club</button>
+            )}
+            {isMember && (
+              <div style={{ background: `${club.color}20`, border: `1px solid ${club.color}50`, borderRadius: 10, padding: "6px 14px", fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 700, color: club.color }}>✓ Member</div>
+            )}
+          </div>
+        </div>
+
+        {/* Join form */}
+        {showJoinForm && (
+          <div style={{ margin: "0 20px 16px", background: "#fff", borderRadius: 16, border: "1px solid #EDE8DF", padding: "18px 16px" }}>
+            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#C4A882", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>Your Info</div>
+            <input placeholder="Your Name *" value={joinName} onChange={e => setJoinName(e.target.value)} style={{ ...inputStyle, marginBottom: 10 }} />
+            <input placeholder="Your Department *" value={joinDept} onChange={e => setJoinDept(e.target.value)} style={{ ...inputStyle, marginBottom: 14 }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowJoinForm(false)} style={{ flex: 1, background: "#F5F0E8", border: "none", color: "#78716C", borderRadius: 10, padding: "10px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>Cancel</button>
+              <button onClick={handleJoinSubmit} disabled={!joinName.trim() || !joinDept.trim()} style={{ flex: 2, background: "#1C1917", border: "none", color: "#FAF8F5", borderRadius: 10, padding: "10px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif", opacity: joinName.trim() && joinDept.trim() ? 1 : 0.38 }}>Join Club 🏆</button>
+            </div>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div style={{ padding: "0 20px 14px" }}>
+          <div style={{ display: "flex", background: "#F5F0E8", borderRadius: 14, padding: 3, gap: 2 }}>
+            {[{ k: "feed", label: "📢 Feed" }, { k: "members", label: "👥 Members" }].map(t => (
+              <button key={t.k} onClick={() => setTab(t.k)} style={{ flex: 1, padding: "9px 4px", border: "none", borderRadius: 11, cursor: "pointer", fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 11, background: tab === t.k ? "#1C1917" : "transparent", color: tab === t.k ? "#FAF8F5" : "#A8957A", transition: "all 0.25s" }}>{t.label}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* FEED TAB */}
+        {tab === "feed" && (
+          <div style={{ padding: "0 20px 32px", display: "flex", flexDirection: "column", gap: 12 }}>
+            {isMember ? (
+              <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #EDE8DF", padding: "14px 16px" }}>
+                <textarea
+                  placeholder={`Share something with ${club.name}...`}
+                  value={postText}
+                  onChange={e => setPostText(e.target.value)}
+                  style={{ ...inputStyle, height: 72, resize: "none", marginBottom: 10 }}
+                />
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button onClick={handlePost} disabled={!postText.trim()} style={{ background: "#1C1917", border: "none", color: "#FAF8F5", borderRadius: 10, padding: "8px 20px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif", opacity: postText.trim() ? 1 : 0.38 }}>Post 📤</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ background: "#FAF8F5", borderRadius: 14, border: "1px dashed #EDE8DF", padding: "14px 16px", textAlign: "center" }}>
+                <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#A8957A" }}>Join the club to post and reply 🔒</div>
+              </div>
+            )}
+            {loading && <div style={{ textAlign: "center", padding: "40px 0", fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#C4B5A4" }}>Loading feed...</div>}
+            {!loading && posts.length === 0 && <EmptyState icon="📢" title="No posts yet" sub="Be the first to post!" />}
+            {posts.map(post => {
+              const likeCount = post.club_likes?.length || 0;
+              const liked = post.club_likes?.some(l => l.user_id === authUser?.id);
+              return (
+                <div key={post.id} style={{ background: "#fff", borderRadius: 16, border: "1px solid #EDE8DF", padding: "14px 16px" }}>
+                  <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #8B6A3E, #C4A055)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>{post.author_name?.[0] || "?"}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, fontWeight: 700, color: "#1C1917" }}>{post.author_name}</div>
+                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A" }}>{post.author_dept}</div>
+                    </div>
+                    <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#C4B5A4" }}>{new Date(post.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</div>
+                  </div>
+                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 13, color: "#1C1917", lineHeight: 1.65, marginBottom: 12 }}>{post.content}</div>
+                  <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                    <button onClick={() => isMember ? handleLike(post) : null} style={{ background: "none", border: "none", cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", gap: 5, fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 600, color: liked ? "#EF4444" : "#A8957A", opacity: isMember ? 1 : 0.5 }} title={!isMember ? "Join to like" : ""}>
+                      {liked ? "❤️" : "🤍"} {likeCount > 0 ? likeCount : ""}
+                    </button>
+                    <button onClick={() => loadReplies(post.id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 600, color: "#A8957A" }}>
+                      💬 {expandedReplies[post.id] ? "Hide replies" : (post.replies?.length > 0 ? `${post.replies.length} replies` : "View replies")}
+                    </button>
+                    {isMember ? (
+                      <button onClick={() => { setReplyingTo(replyingTo === post.id ? null : post.id); setReplyText(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 600, color: "#8B6A3E", marginLeft: "auto" }}>
+                        {replyingTo === post.id ? "Cancel" : "↩ Reply"}
+                      </button>
+                    ) : (
+                      <div style={{ marginLeft: "auto", fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#C4B5A4" }}>Join to interact</div>
+                    )}
+                  </div>
+                  {expandedReplies[post.id] && post.replies && (
+                    <div style={{ marginTop: 12, borderTop: "1px solid #F5F0E8", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {post.replies.length === 0 && <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#C4B5A4", textAlign: "center" }}>No replies yet</div>}
+                      {post.replies.map(r => (
+                        <div key={r.id} style={{ display: "flex", gap: 8 }}>
+                          <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, #C4A055, #8B6A3E)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{r.author_name?.[0] || "?"}</div>
+                          <div style={{ flex: 1, background: "#FAF8F5", borderRadius: 10, padding: "8px 10px" }}>
+                            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 700, color: "#1C1917", marginBottom: 2 }}>{r.author_name} <span style={{ color: "#A8957A", fontWeight: 400 }}>· {r.author_dept}</span></div>
+                            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#1C1917" }}>{r.content}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {replyingTo === post.id && (
+                    <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                      <input
+                        placeholder="Write a reply..."
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                        style={{ ...inputStyle, flex: 1, marginBottom: 0 }}
+                        onKeyDown={e => e.key === "Enter" && handleReply(post.id)}
+                      />
+                      <button onClick={() => handleReply(post.id)} disabled={!replyText.trim()} style={{ background: "#1C1917", border: "none", color: "#fff", borderRadius: 10, padding: "0 14px", fontSize: 16, cursor: "pointer", opacity: replyText.trim() ? 1 : 0.38 }}>↑</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* MEMBERS TAB */}
+        {tab === "members" && (
+          <div style={{ padding: "0 20px 32px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {members.length === 0 && <EmptyState icon="👥" title="No members yet" sub="Be the first to join!" />}
+            {members.map((m, i) => (
+              <div key={m.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #EDE8DF", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg, #8B6A3E, #C4A055)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>{m.name?.[0] || "?"}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 700, color: "#1C1917" }}>{m.name}</div>
+                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 1 }}>{m.department}</div>
+                </div>
+                {i === 0 && <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#8B6A3E", background: "#F5F0E8", borderRadius: 6, padding: "3px 8px" }}>FOUNDER</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Page>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // CREATE CLUB
 // ══════════════════════════════════════════════════════════════════════════════
-function CreateClubScreen({ onBack, onSubmit }) {
-  const [form, setForm] = useState({ name: "", category: "Tech", desc: "", event: "", eventDate: "" });
+function CreateClubScreen({ onBack, onSubmit, profile }) {
+  const [form, setForm] = useState({ name: "", category: "Tech", desc: "", contact: "", dept: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const valid = form.name && form.desc && form.event && form.eventDate;
+  const valid = form.name && form.desc && form.dept;
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
       <Header onBack={onBack} title="Create a Club" />
@@ -1726,14 +2014,14 @@ function CreateClubScreen({ onBack, onSubmit }) {
         <SectionCard label="Club Info">
           <>
             <input placeholder="Club Name *" value={form.name} onChange={e => set("name", e.target.value)} style={inputStyle} />
-            <select value={form.category} onChange={e => set("category", e.target.value)} style={selectStyle}>{["Tech","Sports","Arts","Leadership","Social"].map(c => <option key={c}>{c}</option>)}</select>
-            <textarea placeholder="Club Description *" value={form.desc} onChange={e => set("desc", e.target.value)} style={{ ...inputStyle, height: 88, resize: "none" }} />
+            <select value={form.category} onChange={e => set("category", e.target.value)} style={selectStyle}>{["Tech","Sports","Arts","Leadership","Social","General"].map(c => <option key={c}>{c}</option>)}</select>
+            <textarea placeholder="What is this club about? *" value={form.desc} onChange={e => set("desc", e.target.value)} style={{ ...inputStyle, height: 88, resize: "none" }} />
+            <input placeholder="Contact number (optional)" type="tel" value={form.contact} onChange={e => set("contact", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
           </>
         </SectionCard>
-        <SectionCard label="First Event">
+        <SectionCard label="Your Info (as founder)">
           <>
-            <input placeholder="Event Title *" value={form.event} onChange={e => set("event", e.target.value)} style={inputStyle} />
-            <input placeholder="Event Date *" type="date" value={form.eventDate} onChange={e => set("eventDate", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
+            <input placeholder="Your Department *" value={form.dept} onChange={e => set("dept", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
           </>
         </SectionCard>
         <PrimaryBtn disabled={!valid} onClick={() => valid && onSubmit(form)} style={{ opacity: valid ? 1 : 0.38 }}>Launch Club 🚀</PrimaryBtn>
@@ -1741,6 +2029,7 @@ function CreateClubScreen({ onBack, onSubmit }) {
     </Page>
   );
 }
+
 function MeetupPopup({ ride, onCancel, onConfirm }) {
   const [location, setLocation] = useState("");
   const [time, setTime] = useState("");
