@@ -390,9 +390,14 @@ export default function App() {
     setScreen(S.CLUBS);
   };
 
+  const handleDeleteClub = async (clubId) => {
+    setClubs(cs => cs.filter(c => c.id !== clubId));
+    toast_("🗑️ Club deleted.");
+  };
+
   // ── Derived ────────────────────────────────────────────────────────────────
   const uni = profile?.university_id ? uniDB[profile.university_id] : null;
-  const currentUser = profile ? { id: profile.id, name: profile.name, universityId: profile.university_id } : null;
+  const currentUser = profile ? { id: profile.id, name: profile.name, dept: profile.dept || "", universityId: profile.university_id } : null;
 
   // ── Screen routing ─────────────────────────────────────────────────────────
   return (
@@ -512,6 +517,7 @@ export default function App() {
             profile={profile}
             joined={joinedClubs}
             onJoin={handleJoinClub}
+            onDelete={handleDeleteClub}
             onBack={() => setScreen(S.CLUBS)}
           />}
 
@@ -520,6 +526,7 @@ export default function App() {
             currentUser={currentUser}
             authUser={authUser}
             uni={uni}
+            onUpdateProfile={({ name, dept }) => setProfile(p => ({ ...p, name, dept }))}
             onBack={() => setScreen(S.HOME)}
             onLogout={handleLogout}
             toast_={toast_}
@@ -551,7 +558,7 @@ const LOCAL_CLUBS = {
 // ══════════════════════════════════════════════════════════════════════════════
 // MY HUB — User Dashboard
 // ══════════════════════════════════════════════════════════════════════════════
-function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
+function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, onUpdateProfile, toast_ }) {
   const [tab, setTab] = useState("listings");
   const [myListings, setMyListings]         = useState([]);
   const [myRides, setMyRides]               = useState([]);
@@ -560,6 +567,9 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
   const [myRideRequests, setMyRideRequests] = useState([]); // rides I joined as passenger
   const [loading, setLoading]               = useState(true);
   const [expandedId, setExpandedId]         = useState(null);
+  const [showProfile, setShowProfile]       = useState(false);
+  const [editName, setEditName]             = useState(currentUser?.name || "");
+  const [editDept, setEditDept]             = useState(currentUser?.dept || "");
 
   useEffect(() => {
     if (!authUser) { setLoading(false); return; }
@@ -661,6 +671,37 @@ function MyHubScreen({ currentUser, authUser, uni, onBack, onLogout, toast_ }) {
 const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 'ride_passenger' && (n.status === 'connected' || n.status === 'declined'))).length;
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
+      {/* Profile edit sheet */}
+      {showProfile && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowProfile(false)}>
+          <div onClick={e => e.stopPropagation()} className="anim-0" style={{ background: "#aaa9e2e5", borderRadius: "24px 24px 0 0", padding: "28px 24px 48px", width: "100%", maxWidth: 960 }}>
+            <div style={{ width: 40, height: 4, background: "#EDE8DF", borderRadius: 99, margin: "0 auto 24px" }} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
+              <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg, #ff24cc, #5e6bf0)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 30, fontFamily: "'Playfair Display', serif", marginBottom: 8 }}>
+                {editName?.[0]?.toUpperCase() || currentUser?.name?.[0] || "S"}
+              </div>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#1b1002", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase" }}>{uni?.shortName}</div>
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#1e1303", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 6 }}>Display Name</div>
+              <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Your name" style={{ ...inputStyle, marginBottom: 0 }} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#1c1102", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 6 }}>Department</div>
+              <input value={editDept} onChange={e => setEditDept(e.target.value)} placeholder="e.g. Computer Engineering" style={{ ...inputStyle, marginBottom: 0 }} />
+            </div>
+            <PrimaryBtn onClick={async () => {
+              if (!editName.trim()) return;
+              await supabase.from("profiles").update({ name: editName.trim(), dept: editDept.trim() }).eq("id", authUser.id);
+              onUpdateProfile({ name: editName.trim(), dept: editDept.trim() });
+              setShowProfile(false);
+              toast_("Profile updated!");
+            }} style={{ marginBottom: 12 }}>Save Changes</PrimaryBtn>
+            <button onClick={onLogout} style={{ width: "100%", background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#EF4444", borderRadius: 14, padding: "13px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>Sign Out</button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ padding: "52px 24px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={onBack} style={{ background: "#fff", border: "1px solid #EDE8DF", color: "#1C1917", borderRadius: 12, width: 38, height: 38, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(139,106,62,0.08)" }}>←</button>
@@ -668,26 +709,28 @@ const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 
           <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: "#1C1917", fontSize: 18 }}>My Hub</div>
           {uni && <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#A8957A", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{uni.shortName}</div>}
         </div>
-        <button onClick={onLogout} style={{ background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#EF4444", borderRadius: 10, padding: "6px 12px", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>Sign Out</button>
+        <div style={{ width: 38 }} />
       </div>
 
-      {/* User card */}
-      <div style={{ margin: "20px 24px 0", background: "linear-gradient(135deg, #1C1917, #3D2B1F)", borderRadius: 20, padding: "20px 22px", display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg, #8B6A3E, #C4A055)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 22, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>
+      {/* User card — tap to edit profile */}
+      <div onClick={() => setShowProfile(true)} style={{ margin: "20px 24px 0", background: "linear-gradient(158deg, #1a1a1a, #21354730)", borderRadius: 20, padding: "20px 22px", display: "flex", alignItems: "center", gap: 16, cursor: "pointer" }}>
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg, #61b4f5, #af0be6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 22, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>
           {currentUser?.name?.[0] || "S"}
         </div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#FAF8F5" }}>{currentUser?.name}</div>
           <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#C4A055", fontWeight: 500, marginTop: 3 }}>
-            {authUser ? "✓ Verified Student" : "Guest — sign in to save data"}
+            {currentUser?.dept ? currentUser.dept : (authUser ? "Verified Student" : "Guest")}
           </div>
         </div>
-        {unreadCount > 0 && (
-          <div style={{ marginLeft: "auto", background: "#EF4444", color: "#fff", borderRadius: 99, padding: "4px 10px", fontSize: 11, fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>
-            {unreadCount} new
-          </div>
-        )}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          {unreadCount > 0 && (
+            <div style={{ background: "#EF4444", color: "#fff", borderRadius: 99, padding: "3px 9px", fontSize: 10, fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>{unreadCount} new</div>
+          )}
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#8B6A3E", fontWeight: 600, letterSpacing: "0.08em" }}>Edit Profile</div>
+        </div>
       </div>
+
 
       {/* Tabs */}
       <div style={{ padding: "20px 24px 0" }}>
@@ -1108,7 +1151,7 @@ function GatewayScreen({ uniDB, currentUser, onSelect, onCreate, onBack }) {
 
       <div className="anim-1" style={{ padding: "0 24px 20px" }}>
         <div style={{ display: "flex", background: "#F5F0E8", borderRadius: 14, padding: 3, gap: 2 }}>
-          {[{ k: "find", label: "🔎 Find University" }, { k: "create", label: "➕ Create / Request" }].map(t => (
+          {[{ k: "find", label: "🔎 Find University" }, { k: "create", label: "➕ Create Your Uni Space" }].map(t => (
             <button key={t.k} onClick={() => setTab(t.k)} style={{ flex: 1, padding: "10px 8px", border: "none", borderRadius: 11, cursor: "pointer", fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.03em", background: tab === t.k ? "#1C1917" : "transparent", color: tab === t.k ? "#FAF8F5" : "#A8957A", transition: "all 0.25s ease" }}>{t.label}</button>
           ))}
         </div>
@@ -1201,7 +1244,7 @@ function HomeScreen({ uni, user, onNav, onSwitchUni, onBack, onHub }) {
               👤 My Hub
             </button>
           </div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: "#8B6A3E", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10 }}>Good Morning, {user?.name} 👋</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: "#080500", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10 }}>Hellooo {user?.name} ╰(*°▽°*)╯</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 700, color: "#1C1917", lineHeight: 1.2, letterSpacing: "-0.3px" }}>What are you<br />exploring today?</div>
         </div>
       </div>
@@ -1702,8 +1745,8 @@ function OfferRideScreen({ onBack, onSubmit }) {
         <SectionCard label="Driver Info">
           <>
             <input placeholder="Your Name *" value={form.driver} onChange={e => set("driver", e.target.value)} style={inputStyle} />
-            <input placeholder="WhatsApp / Phone Number *" type="tel" value={form.contact} onChange={e => set("contact", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
-            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 6 }}>🔒 Only shown to passengers who join your ride</div>
+            <input placeholder="Phone Number *" type="tel" value={form.contact} onChange={e => set("contact", e.target.value)} style={{ ...inputStyle, marginBottom: 0 }} />
+            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 6 }}>🔒Don't worry! Only shown to passengers who join your ride</div>
           </>
         </SectionCard>
         <PrimaryBtn disabled={!valid} onClick={() => valid && onSubmit({ ...form, seats: parseInt(form.seats), cost: parseInt(form.cost) })} style={{ opacity: valid ? 1 : 0.38 }}>Post My Ride 🚗</PrimaryBtn>
@@ -1764,7 +1807,7 @@ function ClubsScreen({ clubs, uni, filter, setFilter, joined, authUser, onBack, 
 // ══════════════════════════════════════════════════════════════════════════════
 // CLUB DETAIL — Feed + Members
 // ══════════════════════════════════════════════════════════════════════════════
-function ClubDetailScreen({ club, authUser, profile, joined, onJoin, onBack }) {
+function ClubDetailScreen({ club, authUser, profile, joined, onJoin, onDelete, onBack }) {
   const [tab, setTab] = useState("feed");
   const [posts, setPosts] = useState([]);
   const [members, setMembers] = useState([]);
@@ -1774,9 +1817,17 @@ function ClubDetailScreen({ club, authUser, profile, joined, onJoin, onBack }) {
   const [replyText, setReplyText] = useState("");
   const [expandedReplies, setExpandedReplies] = useState({});
   const [showJoinForm, setShowJoinForm] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [joinName, setJoinName] = useState(profile?.name || "");
   const [joinDept, setJoinDept] = useState("");
   const isMember = !!joined[club.id];
+  const isCreator = authUser?.id === club.created_by;
+
+  const handleDelete = async () => {
+    await supabase.from("clubs").delete().eq("id", club.id);
+    onDelete(club.id);
+    onBack();
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -1865,14 +1916,34 @@ function ClubDetailScreen({ club, authUser, profile, joined, onJoin, onBack }) {
             <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A" }}>
               {club.contact && <span>📲 {club.contact}</span>}
             </div>
-            {!isMember && (
-              <button onClick={() => setShowJoinForm(true)} style={{ background: club.color, border: "none", color: "#fff", borderRadius: 10, padding: "8px 18px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>Join Club</button>
-            )}
-            {isMember && (
-              <div style={{ background: `${club.color}20`, border: `1px solid ${club.color}50`, borderRadius: 10, padding: "6px 14px", fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 700, color: club.color }}>✓ Member</div>
-            )}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {!isMember && (
+                <button onClick={() => setShowJoinForm(true)} style={{ background: club.color, border: "none", color: "#fff", borderRadius: 10, padding: "8px 18px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>Join Club</button>
+              )}
+              {isMember && !isCreator && (
+                <div style={{ background: `${club.color}20`, border: `1px solid ${club.color}50`, borderRadius: 10, padding: "6px 14px", fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 700, color: club.color }}>✓ Member</div>
+              )}
+              {isCreator && (
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <div style={{ background: `${club.color}20`, border: `1px solid ${club.color}50`, borderRadius: 10, padding: "6px 12px", fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 700, color: club.color }}>👑 Creator</div>
+                  <button onClick={() => setConfirmDelete(true)} style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#EF4444", borderRadius: 10, padding: "6px 10px", fontSize: 11, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>🗑️</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Delete confirm */}
+        {confirmDelete && (
+          <div style={{ margin: "0 20px 16px", background: "#FEF2F2", borderRadius: 16, border: "1px solid #FCA5A5", padding: "16px" }}>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: "#1C1917", marginBottom: 6 }}>Delete this club?</div>
+            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#78716C", marginBottom: 14 }}>This will permanently delete the club, all posts, likes, and replies. This cannot be undone.</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirmDelete(false)} style={{ flex: 1, background: "#F5F0E8", border: "none", color: "#78716C", borderRadius: 10, padding: "10px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>Cancel</button>
+              <button onClick={handleDelete} style={{ flex: 1, background: "#EF4444", border: "none", color: "#fff", borderRadius: 10, padding: "10px 0", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>Yes, Delete</button>
+            </div>
+          </div>
+        )}
 
         {/* Join form */}
         {showJoinForm && (

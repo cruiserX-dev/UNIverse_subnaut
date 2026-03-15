@@ -46,7 +46,7 @@ export default function MeetDeveloper() {
       <button onClick={() => setOpen(!open)} style={{
         position: "fixed", bottom: 20, right: 20, zIndex: 100,
         display: "flex", alignItems: "center", gap: 6,
-        background: "linear-gradient(135deg, rgba(139, 106, 63, 0.39), rgba(196,160,85,0.5))",
+        background: "linear-gradient(135deg, rgba(83, 91, 247, 0.87), rgba(153, 76, 240, 0.61))",
         backdropFilter: "blur(10px)",
         border: "1px solid rgba(255,255,255,0.2)",
         borderRadius: 99, padding: "2px 4px 2px 2px",
