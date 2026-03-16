@@ -150,7 +150,7 @@ export default function App() {
           .from('interests').select('id,status,type,from_user_id').eq('id', rowId).single();
         if (!fr || fr.from_user_id !== authUser.id) return;
         if (fr.type !== 'ride') return;
-        if (fr.status === 'connected') toast_("🎉 Rider confirmed your seat! Check Alerts in My Hub.");
+        if (fr.status === 'connected') toast_(" 🎉 Seat confirmed! Check My Hub or connect on call.🤙");
         if (fr.status === 'declined')  toast_("❌ Rider declined your request. Try another ride!");
       })
       .subscribe();
@@ -725,9 +725,9 @@ const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
           {unreadCount > 0 && (
-            <div style={{ background: "#EF4444", color: "#fff", borderRadius: 99, padding: "3px 9px", fontSize: 10, fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>{unreadCount} new</div>
+            <div style={{ background: "#140404", color: "#fff", borderRadius: 99, padding: "3px 9px", fontSize: 10, fontWeight: 700, fontFamily: "'Montserrat', sans-serif" }}>{unreadCount} new</div>
           )}
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#8B6A3E", fontWeight: 600, letterSpacing: "0.08em" }}>Edit Profile</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#000000", fontWeight: 600, letterSpacing: "0.08em" }}>Edit Profile</div>
         </div>
       </div>
 
@@ -955,7 +955,7 @@ function InterestCard({ interest, onSeen, onConfirm, onDecline }) {
           {interest.status === 'pending' && (
             <button onClick={() => onConfirm(interest.id)} style={{ flex: 1, background: "#1C1917", border: "none", color: "#FAF8F5", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>✅ Confirm Seat</button>
           )}
-          <button onClick={() => onDecline(interest.id)} style={{ flex: interest.status === 'pending' ? 1 : 2, background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#EF4444", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>❌ Decline</button>
+          <button onClick={() => onDecline(interest.id)} style={{ flex: interest.status === 'pending' ? 1 : 2, background: "#FEF2F2", border: "1px solid #FCA5A5", color: "#EF4444", borderRadius: 10, padding: "9px 0", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif" }}>❌ Wanna Decline?</button>
         </div>
       )}
       {interest.ride_id && onConfirm && interest.status === 'declined' && (
@@ -1244,8 +1244,8 @@ function HomeScreen({ uni, user, onNav, onSwitchUni, onBack, onHub }) {
               👤 My Hub
             </button>
           </div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: "#080500", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10 }}>Hellooo {user?.name} ╰(*°▽°*)╯</div>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 700, color: "#1C1917", lineHeight: 1.2, letterSpacing: "-0.3px" }}>What are you<br />exploring today?</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: "#080500", letterSpacing: "0.18em",fontStyle: "italic",  marginBottom: 10 }}>Oh hi {user?.name} ╰(*°▽°*)╯</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 700, color: "#1C1917", lineHeight: 1.2,fontStyle: "italic", letterSpacing: "-0.3px" }}>What are you<br />exploring today?</div>
         </div>
       </div>
 
@@ -1264,11 +1264,11 @@ function HomeScreen({ uni, user, onNav, onSwitchUni, onBack, onHub }) {
       <div className="nav-cards-grid" style={{ flex: 1, padding: "0 24px" }}>
         {cards.map((c, i) => (
           <button key={c.s} onClick={() => onNav(c.s)} className={`card-lift anim-${i + 2} nav-card`}
-            style={{ background: "#fff", border: "1px solid #EDE8DF", borderRadius: 22, padding: "22px 22px", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 18, width: "100%", boxShadow: "0 2px 16px rgba(139,106,62,0.06)", transition: "all 0.22s ease" }}>
+            style={{ background: "#dee5ed", border: "1px solid #EDE8DF", borderRadius: 22, padding: "22px 22px", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 18, width: "100%", boxShadow: "0 2px 16px rgba(139,106,62,0.06)", transition: "all 0.22s ease" }}>
             <div style={{ width: 54, height: 54, borderRadius: 16, background: `${c.accent}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0, border: `1px solid ${c.accent}22` }}>{c.icon}</div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: "#1C1917", marginBottom: 5 }}>{c.label}</div>
-              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, fontWeight: 400, color: "#A8957A", lineHeight: 1.4 }}>{c.sub}</div>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: "#220101", marginBottom: 5 }}>{c.label}</div>
+              <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, fontWeight: 400, color: "#14110b", lineHeight: 1.4 }}>{c.sub}</div>
             </div>
             <div style={{ color: c.accent, fontSize: 20, fontWeight: 300, opacity: 0.7 }}>›</div>
           </button>
@@ -1769,13 +1769,13 @@ function ClubsScreen({ clubs, uni, filter, setFilter, joined, authUser, onBack, 
       } />
       <div style={{ padding: "4px 20px 14px", overflowX: "auto", display: "flex", gap: 7, scrollbarWidth: "none" }}>
         {cats.map(c => (
-          <button key={c} onClick={() => setFilter(c)} style={{ padding: "7px 15px", borderRadius: 99, border: filter === c ? "none" : "1px solid #EDE8DF", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", background: filter === c ? "#1C1917" : "#fff", color: filter === c ? "#FAF8F5" : "#78716C", transition: "all 0.2s" }}>{c}</button>
+          <button key={c} onClick={() => setFilter(c)} style={{ padding: "7px 15px", borderRadius: 99, border: filter === c ? "none" : "1px solid #c09b57", cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Montserrat', sans-serif", fontWeight: 600, fontSize: 11, letterSpacing: "0.04em", background: filter === c ? "#1C1917" : "#fff", color: filter === c ? "#FAF8F5" : "#78716C", transition: "all 0.2s" }}>{c}</button>
         ))}
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "0 20px 32px", display: "flex", flexDirection: "column", gap: 14, scrollbarWidth: "none" }}>
         {filtered.length === 0 && <EmptyState icon="🏆" title="No clubs yet" sub="Start the first club!" />}
         {filtered.map((club, i) => (
-          <div key={club.id} className="card-lift fade-in-item" onClick={() => onOpenClub(club)} style={{ animationDelay: `${i * 0.05}s`, background: "#fff", borderRadius: 20, border: "1px solid #EDE8DF", overflow: "hidden", boxShadow: "0 2px 10px rgba(139,106,62,0.05)", cursor: "pointer" }}>
+          <div key={club.id} className="card-lift fade-in-item" onClick={() => onOpenClub(club)} style={{ animationDelay: `${i * 0.05}s`, background: "#d9edff", borderRadius: 20, border: "1px solid #EDE8DF", overflow: "hidden", boxShadow: "0 2px 10px rgba(139,106,62,0.05)", cursor: "pointer" }}>
             <div style={{ height: 3, background: club.color }} />
             <div style={{ padding: "18px 18px" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
@@ -1783,16 +1783,16 @@ function ClubsScreen({ clubs, uni, filter, setFilter, joined, authUser, onBack, 
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                     <div>
-                      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: "#1C1917" }}>{club.name}</div>
+                      <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: "#000000" }}>{club.name}</div>
                       <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: club.color, fontWeight: 600, marginTop: 2 }}>{club.category} · {club.member_count || 0} members</div>
                     </div>
                     <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: joined[club.id] ? club.color : "#C4B5A4", fontWeight: 600 }}>
                       {joined[club.id] ? "✓ Joined" : "Tap to view"}
                     </div>
                   </div>
-                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#78716C", lineHeight: 1.6, fontWeight: 400, marginTop: 6 }}>{club.description}</div>
+                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#000000", lineHeight: 1.6, fontWeight: 400, marginTop: 6 }}>{club.description}</div>
                   {club.contact && (
-                    <div style={{ marginTop: 8, fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A" }}>📲 {club.contact}</div>
+                    <div style={{ marginTop: 8, fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#2600ff" }}>📲 {club.contact}</div>
                   )}
                 </div>
               </div>
@@ -1993,25 +1993,25 @@ function ClubDetailScreen({ club, authUser, profile, joined, onJoin, onDelete, o
               const likeCount = post.club_likes?.length || 0;
               const liked = post.club_likes?.some(l => l.user_id === authUser?.id);
               return (
-                <div key={post.id} style={{ background: "#fff", borderRadius: 16, border: "1px solid #EDE8DF", padding: "14px 16px" }}>
+                <div key={post.id} style={{ background: "#1c1c1c", borderRadius: 16, border: "1px solid #EDE8DF", padding: "14px 16px" }}>
                   <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #8B6A3E, #C4A055)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>{post.author_name?.[0] || "?"}</div>
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #747bff, #ffffff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#000000", fontWeight: 700, fontSize: 13, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>{post.author_name?.[0] || "?"}</div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, fontWeight: 700, color: "#1C1917" }}>{post.author_name}</div>
-                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A" }}>{post.author_dept}</div>
+                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, fontWeight: 700, color: "#edebe7" }}>{post.author_name}</div>
+                      <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#dce1db" }}>{post.author_dept}</div>
                     </div>
-                    <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#C4B5A4" }}>{new Date(post.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</div>
+                    <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#edebe7" }}>{new Date(post.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</div>
                   </div>
-                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 13, color: "#1C1917", lineHeight: 1.65, marginBottom: 12 }}>{post.content}</div>
+                  <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 13, color: "#f4f3f1", lineHeight: 1.65, marginBottom: 12 }}>{post.content}</div>
                   <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                    <button onClick={() => isMember ? handleLike(post) : null} style={{ background: "none", border: "none", cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", gap: 5, fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 600, color: liked ? "#EF4444" : "#A8957A", opacity: isMember ? 1 : 0.5 }} title={!isMember ? "Join to like" : ""}>
+                    <button onClick={() => isMember ? handleLike(post) : null} style={{ background: "none", border: "none", cursor: isMember ? "pointer" : "default", display: "flex", alignItems: "center", gap: 5, fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 600, color: liked ? "#EF4444" : "#8bd6fe", opacity: isMember ? 1 : 0.5 }} title={!isMember ? "Join to like" : ""}>
                       {liked ? "❤️" : "🤍"} {likeCount > 0 ? likeCount : ""}
                     </button>
-                    <button onClick={() => loadReplies(post.id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 600, color: "#A8957A" }}>
+                    <button onClick={() => loadReplies(post.id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 600, color: "#8bd6fe" }}>
                       💬 {expandedReplies[post.id] ? "Hide replies" : (post.replies?.length > 0 ? `${post.replies.length} replies` : "View replies")}
                     </button>
                     {isMember ? (
-                      <button onClick={() => { setReplyingTo(replyingTo === post.id ? null : post.id); setReplyText(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 600, color: "#8B6A3E", marginLeft: "auto" }}>
+                      <button onClick={() => { setReplyingTo(replyingTo === post.id ? null : post.id); setReplyText(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 600, color: "#8bd6fe", marginLeft: "auto" }}>
                         {replyingTo === post.id ? "Cancel" : "↩ Reply"}
                       </button>
                     ) : (
@@ -2020,12 +2020,12 @@ function ClubDetailScreen({ club, authUser, profile, joined, onJoin, onDelete, o
                   </div>
                   {expandedReplies[post.id] && post.replies && (
                     <div style={{ marginTop: 12, borderTop: "1px solid #F5F0E8", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                      {post.replies.length === 0 && <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#C4B5A4", textAlign: "center" }}>No replies yet</div>}
+                      {post.replies.length === 0 && <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, color: "#ffffff", textAlign: "center" }}>No replies yet</div>}
                       {post.replies.map(r => (
                         <div key={r.id} style={{ display: "flex", gap: 8 }}>
-                          <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, #C4A055, #8B6A3E)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{r.author_name?.[0] || "?"}</div>
-                          <div style={{ flex: 1, background: "#FAF8F5", borderRadius: 10, padding: "8px 10px" }}>
-                            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 700, color: "#1C1917", marginBottom: 2 }}>{r.author_name} <span style={{ color: "#A8957A", fontWeight: 400 }}>· {r.author_dept}</span></div>
+                          <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, #6a43ec, #ec7df4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#020000", fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{r.author_name?.[0] || "?"}</div>
+                          <div style={{ flex: 1, background: "#fffff0", borderRadius: 10, padding: "8px 10px" }}>
+                            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 11, fontWeight: 700, color: "#000000", marginBottom: 2 }}>{r.author_name} <span style={{ color: "#000000", fontWeight: 400 }}>· {r.author_dept}</span></div>
                             <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#1C1917" }}>{r.content}</div>
                           </div>
                         </div>
@@ -2056,7 +2056,7 @@ function ClubDetailScreen({ club, authUser, profile, joined, onJoin, onDelete, o
             {members.length === 0 && <EmptyState icon="👥" title="No members yet" sub="Be the first to join!" />}
             {members.map((m, i) => (
               <div key={m.id} style={{ background: "#fff", borderRadius: 14, border: "1px solid #EDE8DF", padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg, #8B6A3E, #C4A055)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>{m.name?.[0] || "?"}</div>
+                <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg, #69c0f2, #e14ceb)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 14, fontFamily: "'Playfair Display', serif", flexShrink: 0 }}>{m.name?.[0] || "?"}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 700, color: "#1C1917" }}>{m.name}</div>
                   <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, color: "#A8957A", marginTop: 1 }}>{m.department}</div>
@@ -2219,8 +2219,7 @@ const inputStyle = { width: "100%", background: "#F5F0E8", border: "1px solid #E
 const selectStyle = { ...inputStyle, cursor: "pointer", appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%23A8957A' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 13px center", backgroundSize: "11px" };
 
 const globalCSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600;1,700&family=Montserrat:wght@300;400;500;600;700&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600;1,700&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap');  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { width: 100%; min-height: 100vh; background: #FAF8F5; font-family: 'Montserrat', sans-serif; -webkit-font-smoothing: antialiased; }
   #root { width: 100%; min-height: 100vh; }
 
