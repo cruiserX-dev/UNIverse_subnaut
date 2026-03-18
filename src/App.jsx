@@ -773,7 +773,7 @@ const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 
         {!loading && authUser && tab === "listings" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {myListings.length === 0 && (
-              <EmptyState icon="📦" title="No listings yet" sub="Go to Marcatplace and list your first item!" />
+              <EmptyState icon="📦" title="No listings yet" sub="Go to Martplace and list your first item!" />
             )}
             {myListings.map(item => {
               const itemInterests = interests.filter(i => i.listing_id === item.id);

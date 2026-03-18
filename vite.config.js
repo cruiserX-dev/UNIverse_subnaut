@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Connexus',
-        short_name: 'Connexus',
+        name: 'Mewtual',
+        short_name: 'Mewtual',
         description: 'Student to Student Network — Marketplace, Ride Pool & Clubs',
         theme_color: '#1C1917',
         background_color: '#FAF8F5',
