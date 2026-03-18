@@ -201,7 +201,7 @@ export default function App() {
     if (data.user) {
       // Update name in profiles
       await supabase.from('profiles').update({ name }).eq('id', data.user.id);
-      toast_("✅ Account created! Welcome to Connexus.");
+      toast_("✅ Account created! Welcome to Mewtual.");
     }
   };
 
@@ -773,7 +773,7 @@ const unreadCount = allNotifs.filter(n => n.status === 'pending' || (n.kind === 
         {!loading && authUser && tab === "listings" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {myListings.length === 0 && (
-              <EmptyState icon="📦" title="No listings yet" sub="Go to Marketplace and list your first item!" />
+              <EmptyState icon="📦" title="No listings yet" sub="Go to Marcatplace and list your first item!" />
             )}
             {myListings.map(item => {
               const itemInterests = interests.filter(i => i.listing_id === item.id);
@@ -998,52 +998,55 @@ function Toast({ msg }) {
 // ══════════════════════════════════════════════════════════════════════════════
 function LoadingScreen({ progress, onDone }) {
   const [phase, setPhase] = useState(0);
+
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 150);
-    const t2 = setTimeout(() => setPhase(2), 800);
-    const t3 = setTimeout(() => setPhase(3), 1400);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    const t1 = setTimeout(() => setPhase(1), 100);
+    const t2 = setTimeout(() => setPhase(2), 600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
+
   useEffect(() => {
     if (progress >= 100) {
-      setPhase(4);
+      setPhase(3);
       const t = setTimeout(() => onDone && onDone(), 900);
       return () => clearTimeout(t);
     }
   }, [progress]);
 
-  const fade = (show, delay) => ({
-    opacity: show ? 1 : 0,
-    transform: show ? "translateY(0)" : "translateY(16px)",
-    transition: `opacity 0.9s cubic-bezier(0.16,1,0.3,1) ${delay || 0}ms, transform 0.9s cubic-bezier(0.16,1,0.3,1) ${delay || 0}ms`,
-  });
-
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "#0A0A0A", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 40px", opacity: phase === 4 ? 0 : 1, transition: "opacity 0.85s cubic-bezier(0.4,0,0.2,1)" }}>
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 55% at 50% 48%, rgba(46,204,143,0.15) 0%, transparent 70%)", opacity: phase >= 1 ? 1 : 0, transition: "opacity 2s ease", pointerEvents: "none" }} />
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-        <div style={{ ...fade(phase >= 1), marginBottom: 60 }}>
-          <img src={LOGO_SRC} alt="Connexus" style={{ width: 250, height: "auto", display: "block", filter: "drop-shadow(0 0 32px rgba(200,160,80,0.2)) brightness(1.5)" }} />
-          <div style={{ fontFamily: "'Cheque', serif", fontSize: 28, color: "#2ECC8F", letterSpacing: "0.15em", marginTop: 12, textAlign: "center" }}>CONNEXUS</div>
-        </div>
-        <div style={{ ...fade(phase >= 2, 60), width: "100%", maxWidth: 250 }}>
-          <div style={{ height: 1.5, background: "rgba(255,255,255,0.08)", borderRadius: 99, position: "relative", overflow: "visible" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: `${progress}%`, background: "linear-gradient(90deg, #7A5A2E, #C4A055, #E8C87A, #C4A055, #7A5A2E)", backgroundSize: "200% 100%", borderRadius: 99, transition: "width 0.2s cubic-bezier(0.25,0.46,0.45,0.94)", animation: progress < 100 ? "goldShimmer 2.2s linear infinite" : "none" }} />
-            <div style={{ position: "absolute", top: "50%", left: `calc(${progress}% - 3px)`, transform: "translateY(-50%)", width: 6, height: 6, borderRadius: "50%", background: "#E8C87A", boxShadow: "0 0 10px 3px rgba(232,200,122,0.5)", transition: "left 0.2s cubic-bezier(0.25,0.46,0.45,0.94)", opacity: progress > 1 && progress < 100 ? 1 : 0 }} />
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
-            <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 500, color: "rgba(255,255,255,0.25)", letterSpacing: "0.22em", textTransform: "uppercase" }}>Loading</div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 600, color: "#C4A055" }}>{Math.round(progress)}%</div>
-          </div>
-        </div>
-        <div style={{ ...fade(phase >= 3, 100), marginTop: 52, textAlign: "center", maxWidth: 300 }}>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 600, fontStyle: "italic", color: "rgba(255,255,255,0.5)", lineHeight: 1.8, whiteSpace: "nowrap" }}>A Student to Student Network for Shared Services</div>
-        </div>
-      </div>
-      <div style={{ position: "absolute", bottom: 36, display: "flex", alignItems: "center", gap: 10, opacity: phase >= 3 ? 1 : 0, transition: "opacity 0.5s ease 0.3s" }}>
-        <div style={{ width: 20, height: 1, background: "rgba(196,160,85,0.5)" }} />
-        <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 7, fontWeight: 600, letterSpacing: "0.28em", textTransform: "uppercase", color: "rgba(46, 204, 143, 0.7)" }}>MARKETPLACE, RIDEPOOLING, COMMUNITY.</div>
-        <div style={{ width: 20, height: 1, background: "rgba(196,160,85,0.5)" }} />
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 100,
+      background: "#010101",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      opacity: phase === 3 ? 0 : 1,
+      transition: "opacity 0.9s cubic-bezier(0.4,0,0.2,1)",
+    }}>
+      <div style={{ textAlign: "center" }}>
+
+        {/* Mew */}
+        <span style={{
+          fontFamily: "'Playfair Display', serif",
+          fontStyle: "italic",
+          fontSize: 52,
+          color: "#FFFC00",
+          display: "inline-block",
+          opacity: phase >= 1 ? 1 : 0,
+          transform: phase >= 1 ? "translateY(0)" : "translateY(40px)",
+          transition: "opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1)",
+        }}>Mew</span>
+
+        {/* tual */}
+        <span style={{
+          fontFamily: "'Playfair Display', serif",
+          fontStyle: "italic",
+          fontSize: 52,
+          color: "#8c8472",
+          display: "inline-block",
+          opacity: phase >= 2 ? 1 : 0,
+          transform: phase >= 2 ? "translateY(0)" : "translateY(40px)",
+          transition: "opacity 0.8s cubic-bezier(0.16,1,0.3,1) 0.15s, transform 0.8s cubic-bezier(0.16,1,0.3,1) 0.15s",
+        }}>tual</span>
+
       </div>
     </div>
   );
@@ -1073,8 +1076,8 @@ function AuthScreen({ onSignUp, onLogin, onGuest }) {
   return (
     <Page style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
       <div className="anim-0" style={{ textAlign: "center", marginBottom: 36 }}>
-        <img src={NEW_LOGO_SRC} alt="Connexus" style={{ width: 220, height: "auto", display: "block", margin: "0 auto 20px", mixBlendMode: "multiply" }} />
-        <div style={{ fontFamily: "'Cheque', serif", fontSize: 28, color: "#050505", letterSpacing: "0.15em", textAlign: "center" }}>CONNEXUS</div>
+        <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 220, height: "auto", display: "block", margin: "0 auto 20px", mixBlendMode: "multiply" }} />
+        <div style={{ fontFamily: "'Cheque', serif", fontSize: 28, color: "#050505", letterSpacing: "0.15em", textAlign: "center" }}>Mewtual</div>
         <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 600, fontStyle: "italic", color: "#4A3728", lineHeight: 1.65, maxWidth: 270, margin: "10px auto 0", letterSpacing: "0.01em" }}>
           From trading Notes to Sharing Rides<br />
           <span style={{ color: "#8B6A3E", fontStyle: "normal", fontWeight: 700 }}>And joining Clubs.</span>
@@ -1135,13 +1138,13 @@ function GatewayScreen({ uniDB, currentUser, onSelect, onCreate, onBack }) {
       </div>
       <div style={{ padding: "16px 24px 20px" }}>
         <div className="anim-0" style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src={NEW_LOGO_SRC} alt="Connexus" style={{ width: 200, height: "auto", display: "block", margin: "0 auto 18px", mixBlendMode: "multiply" }} />
-          <div style={{ fontFamily: "'Cheque', serif", fontSize: 28, color: "#000000", letterSpacing: "0.15em", textAlign: "center" }}>CONNEXUS</div>
+          <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 200, height: "auto", display: "block", margin: "0 auto 18px", mixBlendMode: "multiply" }} />
+          <div style={{ fontFamily: "'Cheque', serif", fontSize: 28, color: "#000000", letterSpacing: "0.15em", textAlign: "center" }}>Mewtual</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600, fontStyle: "italic", color: "#4A3728", lineHeight: 1.65, maxWidth: 260, margin: "8px auto" }}>
             From trading Notes to Sharing Rides
             <span style={{ display: "block", color: "#8B6A3E", fontStyle: "normal", fontWeight: 700 }}>And joining Clubs.</span>
           </div>
-          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#3a2b15", fontWeight: 400 }}>Powered by Student Nexus.</div>
+          <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 12, color: "#3a2b15", fontWeight: 400 }}>Students connected Mewtually.</div>
         </div>
         <div className="anim-1" style={{ borderTop: "1px solid #EDE8DF", paddingTop: 18 }}>
           <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 10, fontWeight: 600, color: "#8B6A3E", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 6 }}>Welcome, {currentUser?.name} 👋</div>
@@ -1221,7 +1224,7 @@ function GatewayScreen({ uniDB, currentUser, onSelect, onCreate, onBack }) {
 // ══════════════════════════════════════════════════════════════════════════════
 function HomeScreen({ uni, user, onNav, onSwitchUni, onBack, onHub }) {
   const cards = [
-    { s: S.MARKETPLACE, icon: "🛍️", label: "Marketplace",     sub: "Books, Gadgets & more",     accent: "#8B6A3E" },
+    { s: S.MARKETPLACE, icon: "🛍️", label: "Marcatplace",     sub: "Books, Gadgets & more",     accent: "#8B6A3E" },
     { s: S.RIDESHARE,   icon: "🚗", label: "Ride Pool",        sub: "Share rides to campus",      accent: "#10B981" },
     { s: S.CLUBS,       icon: "🏆", label: "Clubs & Societies", sub: "Sports, Tech & more",        accent: "#6366F1" },
   ];
@@ -1231,7 +1234,7 @@ function HomeScreen({ uni, user, onNav, onSwitchUni, onBack, onHub }) {
         <div className="anim-0">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <button onClick={onBack} style={{ background: "#fff", border: "1px solid #EDE8DF", color: "#1C1917", borderRadius: 12, width: 38, height: 38, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(139,106,62,0.08)", flexShrink: 0 }}>←</button>
-            <img src={NEW_LOGO_SRC} alt="Connexus" style={{ width: 90, height: "auto", objectFit: "contain" }} />
+            <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 90, height: "auto", objectFit: "contain" }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: `${uni.accent}15`, border: `1px solid ${uni.accent}30`, borderRadius: 99, padding: "6px 14px 6px 8px" }}>
@@ -1292,7 +1295,7 @@ function MarketplaceScreen({ products, uni, filter, setFilter, onBack, onView, o
   const filtered = filter === "All" ? products : products.filter(p => p.category === filter);
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
-      <Header onBack={onBack} title="Marketplace" uni={uni} right={
+      <Header onBack={onBack} title="Marcatplace" uni={uni} right={
         <button onClick={onSell} style={{ background: "#8B6A3E", border: "none", color: "#FAF8F5", borderRadius: 10, padding: "8px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif", letterSpacing: "0.04em" }}>+ List</button>
       } />
       <div style={{ padding: "0 20px 10px", overflowX: "auto", display: "flex", gap: 7, scrollbarWidth: "none" }}>
@@ -2170,7 +2173,7 @@ function Header({ onBack, title, uni, right }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {right && <div>{right}</div>}
-          <img src={NEW_LOGO_SRC} alt="Connexus" style={{ width: 80, height: "auto", display: "block", objectFit: "contain" }} />
+          <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 80, height: "auto", display: "block", objectFit: "contain" }} />
         </div>
       </div>
     </div>
