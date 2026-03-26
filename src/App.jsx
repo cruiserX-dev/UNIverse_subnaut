@@ -6,11 +6,11 @@ import { createClient } from '@supabase/supabase-js';
 import CatCounter from "./CatCounter";
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SUPABASE CLIENT
+// SUPABASE CLIENT shifted from sydney to mumbai
 // ══════════════════════════════════════════════════════════════════════════════
 const supabase = createClient(
-  'https://ozwqowkjtxjcevqcolxq.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96d3Fvd2tqdHhqY2V2cWNvbHhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyMTIzMTYsImV4cCI6MjA4ODc4ODMxNn0.SuSoUtI-SCiA7r1jd-GbOrYkqk1vAN3I9AOO-NQpwLU'
+  'https://krxdzlhkntraxqjjcpfb.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtyeGR6bGhrbnRyYXhxampjcGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MDM5NzMsImV4cCI6MjA5MDA3OTk3M30.QR01tN5OL2ACxxeoRN18skzczMR4SkmzgAYvYCfA2vc'
 );
 
 // ══════════════════════════════════════════════════════════════════════════════
