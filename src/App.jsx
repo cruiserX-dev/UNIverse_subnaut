@@ -18,8 +18,8 @@ const supabase = createClient(
 // Flow: Loading → Login/Skip → University Gateway → University Dashboard
 // ══════════════════════════════════════════════════════════════════════════════
 
-const LOGO_SRC = cnxfLogo;
-const NEW_LOGO_SRC = newCornerLogo;
+const LOGO_SRC = cnxfLogo;          // cnxf.png — green bg cat (Auth, Gateway, Loading logo)
+const NEW_LOGO_SRC = newCornerLogo;  // crnr_inspyrenet.png — scratching cat corner image
 
 const S = {
   LOADING:     0,
@@ -980,8 +980,7 @@ function EmptyState({ icon, title, sub }) {
 function BgPattern({ screen }) {
   if (screen === S.LOADING) return null;
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", background: "#FAF8F5", backgroundImage: "radial-gradient(circle, #C8BCA8 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-  );
+<div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", background: "#F5FAF7", backgroundImage: "linear-gradient(rgba(16,110,67,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(16,110,67,0.08) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />  );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1075,8 +1074,10 @@ function AuthScreen({ onSignUp, onLogin, onGuest }) {
 
   return (
     <Page style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
+      {/* Corner scratching cat */}
+      <img src={NEW_LOGO_SRC} alt="" style={{ position: "absolute", bottom: 0, right: 0, width: 140, height: "auto", opacity: 0.18, pointerEvents: "none", zIndex: 0 }} />
       <div className="anim-0" style={{ textAlign: "center", marginBottom: 36 }}>
-        <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 220, height: "auto", display: "block", margin: "0 auto 20px", mixBlendMode: "multiply" }} />
+        <img src={LOGO_SRC} alt="Mewtual" style={{ width: 220, height: "auto", display: "block", margin: "0 auto 20px", mixBlendMode: "multiply" }} />
         <div style={{ fontFamily: "'Cheque', serif", fontSize: 28, color: "#050505", letterSpacing: "0.15em", textAlign: "center" }}>Mewtual</div>
         <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 600, fontStyle: "italic", color: "#4A3728", lineHeight: 1.65, maxWidth: 270, margin: "10px auto 0", letterSpacing: "0.01em" }}>
           From trading Notes to Sharing Rides<br />
@@ -1133,12 +1134,14 @@ function GatewayScreen({ uniDB, currentUser, onSelect, onCreate, onBack }) {
 
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
+      {/* Corner scratching cat */}
+      <img src={NEW_LOGO_SRC} alt="" style={{ position: "absolute", bottom: 0, right: 0, width: 140, height: "auto", opacity: 0.18, pointerEvents: "none", zIndex: 0 }} />
       <div style={{ padding: "52px 24px 0", display: "flex", alignItems: "center" }}>
         <button onClick={onBack} style={{ background: "#fff", border: "1px solid #EDE8DF", color: "#1C1917", borderRadius: 12, width: 38, height: 38, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(139,106,62,0.08)", flexShrink: 0 }}>←</button>
       </div>
       <div style={{ padding: "16px 24px 20px" }}>
         <div className="anim-0" style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 200, height: "auto", display: "block", margin: "0 auto 18px", mixBlendMode: "multiply" }} />
+          <img src={LOGO_SRC} alt="Mewtual" style={{ width: 200, height: "auto", display: "block", margin: "0 auto 18px", mixBlendMode: "multiply" }} />
           <div style={{ fontFamily: "'Cheque', serif", fontSize: 28, color: "#000000", letterSpacing: "0.15em", textAlign: "center" }}>Mewtual</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600, fontStyle: "italic", color: "#4A3728", lineHeight: 1.65, maxWidth: 260, margin: "8px auto" }}>
             From trading Notes to Sharing Rides
@@ -2207,7 +2210,7 @@ const pageStyle = { width: "100%", minHeight: "100vh", position: "relative", zIn
 const outerStyle = {
   width: "100vw", minHeight: "100vh",
   display: "flex", justifyContent: "center", alignItems: "flex-start",
-  background: "#FAF8F5",
+  background: "#F5FAF7",
 };
 
 const appStyle = {
