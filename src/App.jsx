@@ -1,5 +1,8 @@
 import newCornerLogo from './assets/crnr_inspyrenet.png';
 import cnxfLogo from './assets/cnxf.png';
+import catNavig from './assets/for_navig.png';
+import catMarketplace from './assets/for_marcatplace.png';
+import catClubs from './assets/for_clubs.png';
 import { useState, useEffect, useRef } from "react";
 import MeetDeveloper from "./MeetDeveloper";
 import { createClient } from '@supabase/supabase-js';
@@ -18,8 +21,8 @@ const supabase = createClient(
 // Flow: Loading → Login/Skip → University Gateway → University Dashboard
 // ══════════════════════════════════════════════════════════════════════════════
 
-const LOGO_SRC = cnxfLogo;          // cnxf.png — green bg cat (Auth, Gateway, Loading logo)
-const NEW_LOGO_SRC = newCornerLogo;  // crnr_inspyrenet.png — scratching cat corner image
+const LOGO_SRC = cnxfLogo;
+const NEW_LOGO_SRC = cnxfLogo;
 
 const S = {
   LOADING:     0,
@@ -1074,10 +1077,8 @@ function AuthScreen({ onSignUp, onLogin, onGuest }) {
 
   return (
     <Page style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 28px" }}>
-      {/* Corner scratching cat */}
-      <img src={NEW_LOGO_SRC} alt="" style={{ position: "absolute", bottom: 0, right: 0, width: 140, height: "auto", opacity: 0.18, pointerEvents: "none", zIndex: 0 }} />
       <div className="anim-0" style={{ textAlign: "center", marginBottom: 36 }}>
-        <img src={LOGO_SRC} alt="Mewtual" style={{ width: 220, height: "auto", display: "block", margin: "0 auto 20px", mixBlendMode: "multiply" }} />
+        <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 140, height: "auto", display: "block", margin: "0 auto 20px", mixBlendMode: "multiply" }} />
         <div style={{ fontFamily: "'Cheque', serif", fontSize: 28, color: "#050505", letterSpacing: "0.15em", textAlign: "center" }}>Mewtual</div>
         <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 600, fontStyle: "italic", color: "#4A3728", lineHeight: 1.65, maxWidth: 270, margin: "10px auto 0", letterSpacing: "0.01em" }}>
           From trading Notes to Sharing Rides<br />
@@ -1134,14 +1135,12 @@ function GatewayScreen({ uniDB, currentUser, onSelect, onCreate, onBack }) {
 
   return (
     <Page style={{ display: "flex", flexDirection: "column" }}>
-      {/* Corner scratching cat */}
-      <img src={NEW_LOGO_SRC} alt="" style={{ position: "absolute", bottom: 0, right: 0, width: 140, height: "auto", opacity: 0.18, pointerEvents: "none", zIndex: 0 }} />
       <div style={{ padding: "52px 24px 0", display: "flex", alignItems: "center" }}>
         <button onClick={onBack} style={{ background: "#fff", border: "1px solid #EDE8DF", color: "#1C1917", borderRadius: 12, width: 38, height: 38, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(139,106,62,0.08)", flexShrink: 0 }}>←</button>
       </div>
       <div style={{ padding: "16px 24px 20px" }}>
         <div className="anim-0" style={{ textAlign: "center", marginBottom: 20 }}>
-          <img src={LOGO_SRC} alt="Mewtual" style={{ width: 200, height: "auto", display: "block", margin: "0 auto 18px", mixBlendMode: "multiply" }} />
+          <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 130, height: "auto", display: "block", margin: "0 auto 18px", mixBlendMode: "multiply" }} />
           <div style={{ fontFamily: "'Cheque', serif", fontSize: 28, color: "#000000", letterSpacing: "0.15em", textAlign: "center" }}>Mewtual</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 600, fontStyle: "italic", color: "#4A3728", lineHeight: 1.65, maxWidth: 260, margin: "8px auto" }}>
             From trading Notes to Sharing Rides
@@ -1237,7 +1236,7 @@ function HomeScreen({ uni, user, onNav, onSwitchUni, onBack, onHub }) {
         <div className="anim-0">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <button onClick={onBack} style={{ background: "#fff", border: "1px solid #EDE8DF", color: "#1C1917", borderRadius: 12, width: 38, height: 38, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(139,106,62,0.08)", flexShrink: 0 }}>←</button>
-            <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 90, height: "auto", objectFit: "contain" }} />
+            <img src={newCornerLogo} alt="" style={{ width: 52, height: "auto", objectFit: "contain" }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: `${uni.accent}15`, border: `1px solid ${uni.accent}30`, borderRadius: 99, padding: "6px 14px 6px 8px" }}>
@@ -1267,7 +1266,11 @@ function HomeScreen({ uni, user, onNav, onSwitchUni, onBack, onHub }) {
         <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, fontWeight: 700, color: "#C4A882", letterSpacing: "0.2em", textTransform: "uppercase" }}>Explore</div>
       </div>
 
-      <div className="nav-cards-grid" style={{ flex: 1, padding: "0 24px" }}>
+      <div style={{ position: "relative", height: 0 }}>
+        <img src={catNavig} alt="" style={{ position: "absolute", top: -44, right: 24, width: 155, height: "auto", mixBlendMode: "multiply", pointerEvents: "none", zIndex: 3 }} />
+      </div>
+
+      <div className="nav-cards-grid" style={{ flex: 1, padding: "0 24px", position: "relative", zIndex: 1 }}>
         {cards.map((c, i) => (
           <button key={c.s} onClick={() => onNav(c.s)} className={`card-lift anim-${i + 2} nav-card`}
             style={{ background: "#dee5ed", border: "1px solid #EDE8DF", borderRadius: 22, padding: "22px 22px", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 18, width: "100%", boxShadow: "0 2px 16px rgba(139,106,62,0.06)", transition: "all 0.22s ease" }}>
@@ -1769,7 +1772,8 @@ function ClubsScreen({ clubs, uni, filter, setFilter, joined, authUser, onBack, 
   const cats = ["All", "Tech", "Sports", "Arts", "Leadership", "Social"];
   const filtered = filter === "All" ? clubs : clubs.filter(c => c.category === filter);
   return (
-    <Page style={{ display: "flex", flexDirection: "column" }}>
+    <Page style={{ display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
+      <img src={catClubs} alt="" style={{ position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)", width: 90, height: "auto", opacity: 0.15, pointerEvents: "none", mixBlendMode: "multiply", zIndex: 0 }} />
       <Header onBack={onBack} title="Clubs & Societies" uni={uni} right={
         <button onClick={onCreate} style={{ background: "#6366F1", border: "none", color: "#fff", borderRadius: 10, padding: "8px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif", letterSpacing: "0.04em" }}>+ Create</button>
       } />
@@ -2171,12 +2175,17 @@ function Header({ onBack, title, uni, right }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <button onClick={onBack} style={{ background: "#fff", border: "1px solid #EDE8DF", color: "#1C1917", borderRadius: 12, width: 38, height: 38, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(139,106,62,0.08)", flexShrink: 0 }}>←</button>
         <div style={{ flex: 1, textAlign: "center", padding: "0 8px" }}>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: "#1C1917", fontSize: 18 }}>{title}</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, color: "#1C1917", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            {title}
+            {title === "Marcatplace" && (
+              <img src={catMarketplace} alt="" style={{ width: 32, height: "auto", mixBlendMode: "multiply", pointerEvents: "none" }} />
+            )}
+          </div>
           {uni && <div style={{ fontFamily: "'Montserrat', sans-serif", fontSize: 9, color: "#A8957A", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{uni.shortName}</div>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           {right && <div>{right}</div>}
-          <img src={NEW_LOGO_SRC} alt="Mewtual" style={{ width: 80, height: "auto", display: "block", objectFit: "contain" }} />
+          <img src={newCornerLogo} alt="" style={{ width: 52, height: "auto", display: "block", objectFit: "contain" }} />
         </div>
       </div>
     </div>
