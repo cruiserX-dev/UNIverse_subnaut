@@ -79,7 +79,7 @@ export default function App() {
   // ── Loading bar ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (screen !== S.LOADING) return;
-    const DURATION = 5000;
+    const DURATION = 3000;
     const startTime = performance.now();
     const ease = (t) => {
       if (t < 0.45) return t * 1.6;
@@ -1773,7 +1773,7 @@ function ClubsScreen({ clubs, uni, filter, setFilter, joined, authUser, onBack, 
   const filtered = filter === "All" ? clubs : clubs.filter(c => c.category === filter);
   return (
     <Page style={{ display: "flex", flexDirection: "column", position: "relative", overflow: "hidden" }}>
-      <img src={catClubs} alt="" style={{ position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)", width: 90, height: "auto", opacity: 0.15, pointerEvents: "none", mixBlendMode: "multiply", zIndex: 0 }} />
+      <img src={catClubs} alt="" style={{ position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)", width: 90, height: "auto", opacity: 0.5, pointerEvents: "none", mixBlendMode: "multiply", zIndex: 0 }} />
       <Header onBack={onBack} title="Clubs & Societies" uni={uni} right={
         <button onClick={onCreate} style={{ background: "#6366F1", border: "none", color: "#fff", borderRadius: 10, padding: "8px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "'Montserrat', sans-serif", letterSpacing: "0.04em" }}>+ Create</button>
       } />
